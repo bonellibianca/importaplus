@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMPORTA+ | Prototipo MVP - Proceso de Negocio 1 (PN1)</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="datos_excels.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px auto;
+      max-width: 780px;
+      padding: 0 15px;
+      color: #000;
+      background: #fff;
+      line-height: 1.4;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0 0 8px 0;
+      font-weight: bold;
+    }
+
+    h1 {
+      font-size: 20px;
+      border-bottom: 1px solid #000;
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+    }
+
+    h2 {
+      font-size: 16px;
+      margin-top: 16px;
+    }
+
+    fieldset {
+      border: 1px solid #000;
+      padding: 12px;
+      margin-bottom: 14px;
+    }
+
+    legend {
+      font-weight: bold;
+      padding: 0 6px;
+      font-size: 13px;
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .field {
+      flex: 1;
+      min-width: 160px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: bold;
+      margin-bottom: 3px;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select {
+      border: 1px solid #000;
+      padding: 6px;
+      font-size: 13px;
+      background: #fff;
+      color: #000;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    button {
+      border: 1px solid #000;
+      background: #eee;
+      color: #000;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #ddd;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 10px;
+      font-size: 14px;
+      margin-top: 6px;
+    }
+
+    .sugerencias {
+      border: 1px solid #000;
+      max-height: 160px;
+      overflow-y: auto;
+      margin-top: 4px;
+      display: none;
+      background: #fff;
+    }
+
+    .sugerencia-item {
+      padding: 6px;
+      border-bottom: 1px solid #ccc;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .sugerencia-item:hover {
+      background: #eee;
+    }
+
+    .info-box {
+      border: 1px solid #000;
+      padding: 8px;
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 13px;
+    }
+
+    th,
+    td {
+      border: 1px solid #000;
+      padding: 6px 8px;
+      text-align: left;
+    }
+
+    th {
+      background: #eee;
+    }
+
+    .num {
+      text-align: right;
+      font-family: monospace;
+    }
+
+    .fila-destacada {
+      font-weight: bold;
+      background: #f5f5f5;
+    }
+
+    .formulas {
+      font-family: monospace;
+      font-size: 12px;
+      border: 1px solid #000;
+      padding: 10px;
+      margin-top: 12px;
+      white-space: pre-line;
+    }
+
+    .nota-db {
+      font-size: 11px;
+      margin-bottom: 12px;
+      padding: 6px;
+      border: 1px dashed #000;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>IMPORTA+ — Prototipo MVP (Proceso de Negocio 1: Liquidación Aduanera)</h1>
+
+  <div class="nota-db" id="estado-db">
+    Cargando base de datos desde los Excels de la carpeta IMPORTA...
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- CU01: Consultar Posición Arancelaria NCM y Cargar Variables Comerciales -->
+  <!-- ===================================================================== -->
+  <fieldset>
+    <legend>CU01: Posición Arancelaria NCM y Variables Comerciales</legend>
+
+    <div class="row">
+      <div class="field" style="flex: 2;">
+        <label for="txt-ncm">Buscar Producto o Código NCM (Ej: 8471.30.12, Notebook, Celular, Remera, Calzado,
+          Router):</label>
+        <input type="text" id="txt-ncm" placeholder="Escriba código NCM o descripción del producto..."
+          autocomplete="off">
+        <div id="lista-sugerencias" class="sugerencias"></div>
+        <div id="detalle-ncm" class="info-box hidden"></div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="sel-pais">País de Origen:</label>
+        <select id="sel-pais"></select>
+      </div>
+      <div class="field">
+        <label for="txt-cantidad">Cantidad (Unidades):</label>
+        <input type="number" id="txt-cantidad" value="100" min="1" step="1">
+      </div>
+      <div class="field">
+        <label for="txt-fob-unitario">Valor FOB Unitario (USD):</label>
+        <input type="number" id="txt-fob-unitario" value="50.00" min="0.01" step="0.01">
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="txt-fob-total">Subtotal FOB Mercadería (USD):</label>
+        <input type="text" id="txt-fob-total" readonly value="5000.00">
+      </div>
+      <div class="field">
+        <label for="txt-flete">Flete Internacional (USD):</label>
+        <input type="number" id="txt-flete" value="0" min="0" step="0.01">
+      </div>
+      <div class="field">
+        <label for="txt-seguro">Seguro Internacional (USD):</label>
+        <input type="number" id="txt-seguro" value="0" min="0" step="0.01">
+      </div>
+    </div>
+
+    <div class="row" style="align-items: center;">
+      <div class="field">
+        <label for="sel-ganancias">Condición ante Impuesto a las Ganancias (RG 2281):</label>
+        <select id="sel-ganancias">
+          <option value="inscripto">Responsable Inscripto (Percepción 6%)</option>
+          <option value="no_inscripto">Sujeto No Categorizado / Particular (Percepción 11%)</option>
+        </select>
+      </div>
+      <div class="field" id="box-excepcion" style="display:none;">
+        <label>
+          <input type="checkbox" id="chk-excepcion" checked>
+          Aplicar Excepción Arancelaria (Decreto 557/2023)
+        </label>
+      </div>
+      <div>
+        <button type="button" id="btn-estimar-logistica">Estimar Flete y Seguro Supletorio</button>
+      </div>
+    </div>
+
+    <!-- CU02: Acción de Simular Liquidación Aduanera -->
+    <button type="button" class="btn-primary" id="btn-calcular">CALCULAR MI IMPORTACIÓN</button>
+  </fieldset>
+
+  <!-- ===================================================================== -->
+  <!-- CU02 y CU03: Resultado de Liquidación y Desglose Analítico de Costos  -->
+  <!-- ===================================================================== -->
+  <div id="seccion-resultados" class="hidden">
+    <fieldset>
+      <legend>CU02: Resumen de Liquidación Aduanera</legend>
+      <div id="resumen-cabecera" style="font-size: 13px; margin-bottom: 8px;"></div>
+      <table>
+        <tbody>
+          <tr>
+            <th>Valor FOB Total Mercadería</th>
+            <td class="num" id="res-fob">USD 0.00</td>
+            <th>Valor Base Imponible Aduanera (CIF)</th>
+            <td class="num" id="res-cif">USD 0.00</td>
+          </tr>
+          <tr>
+            <th>Total Tributos y Gravámenes DGA</th>
+            <td class="num" id="res-gravamenes">USD 0.00</td>
+            <th>Sobrecosto de Nacionalización s/ FOB</th>
+            <td class="num" id="res-sobrecosto">0.0%</td>
+          </tr>
+          <tr class="fila-destacada">
+            <th>COSTO TOTAL NACIONALIZADO (USD)</th>
+            <td class="num" id="res-total-usd">USD 0.00</td>
+            <th>COSTO UNITARIO FINAL (USD)</th>
+            <td class="num" id="res-unitario-usd">USD 0.00</td>
+          </tr>
+          <tr>
+            <th>Conversión Estimada en Pesos (BNA)</th>
+            <td class="num" id="res-total-ars">ARS 0.00</td>
+            <th>ID Trazabilidad Simulación</th>
+            <td class="num" id="res-hash">-</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="margin-top: 8px;">
+        <button type="button" id="btn-toggle-desglose">Ocultar / Mostrar Desglose Detallado (CU03)</button>
+      </div>
+    </fieldset>
+
+    <fieldset id="fieldset-desglose">
+      <legend>CU03: Desglose de Costos y Tributos Aduaneros</legend>
+      <table>
+        <thead>
+          <tr>
+            <th>Concepto / Rubro</th>
+            <th>Normativa / Detalle</th>
+            <th class="num">Base Imponible (USD)</th>
+            <th class="num">Alícuota (%)</th>
+            <th class="num">Importe (USD)</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-desglose-body"></tbody>
+      </table>
+
+      <div class="formulas" id="caja-formulas"></div>
+    </fieldset>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- ARQUITECTURA EN CAPAS SEGÚN DISEÑO UML DE PN1 (BE, DAL, BLL, GUI)     -->
+  <!-- ===================================================================== -->
+  <script>
+    /*************************************************************************
+     * 1. CAPA BE (Business Entities - DiagramaClases_PN1)
+     *************************************************************************/
+    class PosicionArancelariaBE {
+      constructor({
+        codigoNcm = '',
+        descripcion = '',
+        categoria = '',
+        capitulo = '',
+        aec = 0,
+        arancelExternoComun = 0,
+        tipoBien = 'GENERAL',
+        esBienDeCapital = false,
+        esInformaticaTelecom = false,
+        ivaAlicuota = 21.0,
+        poseeExcepcion = false,
+        anexoExcepcion = '',
+        arancelExcepcion = 0,
+        arancelAplicableExcepcion = 0,
+        condicionExcepcion = ''
+      } = {}) {
+        this.codigoNcm = codigoNcm;
+        this.descripcion = descripcion;
+        this.categoria = categoria;
+        this.capitulo = capitulo;
+        this.aec = parseFloat(aec ?? arancelExternoComun) || 0;
+        this.arancelExternoComun = this.aec;
+        this.tipoBien = tipoBien || (esBienDeCapital ? 'BK' : (esInformaticaTelecom ? 'BIT' : 'GENERAL'));
+        this.esBienDeCapital = Boolean(esBienDeCapital || this.tipoBien === 'BK');
+        this.esInformaticaTelecom = Boolean(esInformaticaTelecom || this.tipoBien === 'BIT');
+        this.ivaAlicuota = (this.esBienDeCapital || this.esInformaticaTelecom) ? 10.5 : (parseFloat(ivaAlicuota) || 21.0);
+        this.poseeExcepcion = Boolean(poseeExcepcion);
+        this.anexoExcepcion = anexoExcepcion || '';
+        this.arancelExcepcion = parseFloat(arancelExcepcion ?? arancelAplicableExcepcion) || 0;
+        this.arancelAplicableExcepcion = this.arancelExcepcion;
+        this.condicionExcepcion = condicionExcepcion || '';
+      }
+    }
+
+    class PaisBE {
+      constructor({
+        codigo = '',
+        codigoIso = '',
+        nombre = '',
+        esIntrazona = false,
+        esMercosur = false,
+        fleteEstimadoPct = 8.0,
+        fleteParametricoStd = 1800,
+        seguroPctStd = 1.0
+      } = {}) {
+        this.codigo = codigo || codigoIso;
+        this.codigoIso = codigoIso || codigo;
+        this.nombre = nombre;
+        this.esIntrazona = Boolean(esIntrazona || esMercosur);
+        this.esMercosur = this.esIntrazona;
+        this.fleteEstimadoPct = parseFloat(fleteEstimadoPct) || 8.0;
+        this.fleteParametricoStd = parseFloat(fleteParametricoStd) || 1800;
+        this.seguroPctStd = parseFloat(seguroPctStd) || 1.0;
+      }
+    }
+
+    class GravamenItemBE {
+      constructor({
+        tipoGravamen = '',
+        baseImponible = 0,
+        alicuota = 0,
+        montoUsd = 0,
+        descripcion = ''
+      } = {}) {
+        this.tipoGravamen = tipoGravamen;
+        this.baseImponible = parseFloat(baseImponible) || 0;
+        this.alicuota = parseFloat(alicuota) || 0;
+        this.montoUsd = parseFloat(montoUsd) || 0;
+        this.descripcion = descripcion;
+      }
+    }
+
+    class CalculadoraArancelariaBE {
+      constructor({
+        posicion = null,
+        pais = null,
+        cantidad = 1,
+        precioFobUnitario = 0,
+        flete = 0,
+        seguro = 0,
+        esEstimacionFlete = false,
+        esEstimacionSeguro = false,
+        esInscriptoGanancias = true,
+        aplicarExcepcion = true
+      } = {}) {
+        this.posicion = posicion;
+        this.pais = pais;
+        this.cantidad = Math.max(1, parseInt(cantidad) || 1);
+        this.precioFobUnitario = Math.max(0, parseFloat(precioFobUnitario) || 0);
+        this.flete = Math.max(0, parseFloat(flete) || 0);
+        this.fleteUsd = this.flete;
+        this.seguro = Math.max(0, parseFloat(seguro) || 0);
+        this.seguroUsd = this.seguro;
+        this.esEstimacionFlete = Boolean(esEstimacionFlete);
+        this.esEstimacionSeguro = Boolean(esEstimacionSeguro);
+        this.esInscriptoGanancias = Boolean(esInscriptoGanancias);
+        this.aplicarExcepcion = Boolean(aplicarExcepcion);
+
+        this.fobTotal = 0;
+        this.cifAduanero = 0;
+        this.cifUsd = 0;
+        this.tratamientoArancelario = '';
+        this.alicuotaDie = 0;
+        this.montoDie = 0;
+        this.alicuotaEstadistica = 0;
+        this.montoEstadistica = 0;
+        this.baseImponibleInterior = 0;
+        this.alicuotaIva = 21;
+        this.montoIva = 0;
+        this.alicuotaIvaAdicional = 20;
+        this.montoIvaAdicional = 0;
+        this.alicuotaGanancias = 6;
+        this.montoGanancias = 0;
+        this.totalSimDigitalizacion = 38;
+        this.totalGravamenes = 0;
+        this.costoTotalNacionalizado = 0;
+        this.costoUnitarioNacionalizado = 0;
+        this.ratioSobrecostoPct = 0;
+        this.cotizacionBna = 1420.50;
+        this.costoTotalARS = 0;
+        this.hashCotizacion = '';
+        this._desglose = [];
+      }
+
+      agregarGravamen(item) {
+        this._desglose.push(item);
+      }
+
+      obtenerDesglose() {
+        return this._desglose;
+      }
+    }
+
+    /*************************************************************************
+     * 2. CAPA DAL (Data Access Layer - Consume los Excels de IMPORTA)
+     *************************************************************************/
+    class PosicionArancelariaDAL {
+      constructor() {
+        this._cachePosiciones = null;
+        this.fuenteDatos = '';
+      }
+
+      async cargarCatalogo() {
+        if (this._cachePosiciones && this._cachePosiciones.length > 0) {
+          return this._cachePosiciones;
+        }
+
+        // 1. Si se sirve por HTTP/localhost y está disponible SheetJS, intenta leer Nomenclatura_NCM_aranceles.xlsx directo
+        if (typeof XLSX !== 'undefined' && window.location.protocol.startsWith('http')) {
+          try {
+            const resp = await fetch('./Nomenclatura_NCM_aranceles.xlsx');
+            if (resp.ok) {
+              const buf = await resp.arrayBuffer();
+              const wb = XLSX.read(buf, { type: 'array' });
+              const sheetName = wb.SheetNames.find(n => n.toLowerCase().includes('nomenclatura')) || wb.SheetNames[1] || wb.SheetNames[0];
+              const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: '' });
+              if (rows && rows.length > 0) {
+                this._cachePosiciones = rows.map(r => {
+                  const code = String(r['Código NCM'] || '').trim();
+                  const desc = String(r['Descripción completa'] || r['Descripción'] || '').trim();
+                  const aec = parseFloat(r['Arancel AEC (%)']) || 0;
+                  const tipo = String(r['Tipo'] || '').trim();
+                  const anexo = String(r['Anexo excepción'] || '').trim();
+                  const aplicable = r['Arancel aplicable (%)'] !== '' ? parseFloat(r['Arancel aplicable (%)']) : aec;
+                  const cond = String(r['Condición'] || '').trim();
+                  return new PosicionArancelariaBE({
+                    codigoNcm: code,
+                    descripcion: desc,
+                    categoria: desc.includes(' > ') ? desc.split(' > ')[0] : 'Capítulo ' + code.slice(0, 2),
+                    capitulo: code.slice(0, 2),
+                    aec: aec,
+                    tipoBien: tipo || 'GENERAL',
+                    esBienDeCapital: tipo === 'BK',
+                    esInformaticaTelecom: tipo === 'BIT',
+                    poseeExcepcion: Boolean(anexo),
+                    anexoExcepcion: anexo ? 'Decreto 557/2023 - Anexo ' + anexo : '',
+                    arancelExcepcion: aplicable,
+                    condicionExcepcion: cond
+                  });
+                }).filter(p => p.codigoNcm.length > 0);
+                this.fuenteDatos = `Excel directo vía HTTP (Nomenclatura_NCM_aranceles.xlsx: ${this._cachePosiciones.length} posiciones NCM)`;
+                return this._cachePosiciones;
+              }
+            }
+          } catch (e) {
+            // Continúa al dataset extraído de los Excels locales
+          }
+        }
+
+        // 2. Carga desde datos_excels.js (generado directamente de Nomenclatura_NCM_aranceles.xlsx + IMPORTA_PLUS_NOMENCLADOR_CON_COLUMNAS.xlsx)
+        if (window.EXCEL_NCM_DATA && Array.isArray(window.EXCEL_NCM_DATA)) {
+          this._cachePosiciones = window.EXCEL_NCM_DATA.map(item => new PosicionArancelariaBE({
+            codigoNcm: item.c,
+            descripcion: item.d,
+            categoria: item.cat,
+            capitulo: item.cap,
+            aec: item.aec,
+            tipoBien: item.t || 'GENERAL',
+            esBienDeCapital: item.t === 'BK',
+            esInformaticaTelecom: item.t === 'BIT',
+            poseeExcepcion: Boolean(item.ax),
+            anexoExcepcion: item.ax ? 'Decreto 557/2023 - Anexo ' + item.ax : '',
+            arancelExcepcion: item.ap,
+            condicionExcepcion: item.co
+          }));
+          this.fuenteDatos = `Excels carpeta IMPORTA: Nomenclatura_NCM_aranceles.xlsx (10.437 NCM) + IMPORTA_PLUS_NOMENCLADOR_CON_COLUMNAS.xlsx (47.507 posiciones SIM)`;
+          return this._cachePosiciones;
+        }
+
+        this._cachePosiciones = [];
+        return this._cachePosiciones;
+      }
+
+      async obtenerTodas() {
+        return await this.cargarCatalogo();
+      }
+
+      async obtenerPorCodigo(codigoNcm) {
+        const lista = await this.cargarCatalogo();
+        const limpio = (codigoNcm || '').trim().replace(/[.\s-]/g, '');
+        return lista.find(p => p.codigoNcm.replace(/[.\s-]/g, '') === limpio) || null;
+      }
+
+      async buscarPorTermino(texto, limite = 15) {
+        const lista = await this.cargarCatalogo();
+        if (!texto || !texto.trim()) return [];
+
+        const rawTerm = texto.trim().toLowerCase();
+        const cleanNum = rawTerm.replace(/[.\s-]/g, '');
+
+        // Diccionario de sinónimos comerciales frecuentes hacia términos técnicos del Nomenclador Oficial
+        const sinonimos = {
+          'notebook': '8471.30',
+          'laptop': '8471.30',
+          'computadora': '8471.',
+          'pc': '8471.41',
+          'celular': '8517.13',
+          'smartphone': '8517.13',
+          'telefono': '8517.1',
+          'router': '8517.62',
+          'remera': '6109.10',
+          'camiseta': '6109.',
+          'zapatilla': '6402.19',
+          'calzado': '6402.',
+          'juguete': '9503.00',
+          'consola': '9504.50',
+          'monitor': '8528.52',
+          'auricular': '8518.30',
+          'termo': '9617.00',
+          'perfume': '3303.00',
+          'cafe': '0901.21',
+          'autoparte': '8708.'
+        };
+
+        let ncmHint = null;
+        for (const [k, v] of Object.entries(sinonimos)) {
+          if (rawTerm.includes(k)) {
+            ncmHint = v;
+            break;
+          }
+        }
+
+        const palabras = rawTerm.split(/\s+/).filter(Boolean);
+        const resultados = [];
+
+        for (let i = 0; i < lista.length; i++) {
+          const pos = lista[i];
+          const descLower = pos.descripcion.toLowerCase();
+          const ncmClean = pos.codigoNcm.replace(/[.\s-]/g, '');
+
+          const coincideCodigo = cleanNum.length >= 2 && (pos.codigoNcm.toLowerCase().includes(rawTerm) || ncmClean.includes(cleanNum));
+          const coincideHint = ncmHint && pos.codigoNcm.startsWith(ncmHint);
+          const coincideTexto = palabras.every(w => descLower.includes(w));
+
+          if (coincideCodigo || coincideHint || coincideTexto) {
+            resultados.push(pos);
+            if (resultados.length >= limite * 3) break;
+          }
+        }
+
+        resultados.sort((a, b) => {
+          if (ncmHint) {
+            const aH = a.codigoNcm.startsWith(ncmHint) ? 0 : 1;
+            const bH = b.codigoNcm.startsWith(ncmHint) ? 0 : 1;
+            if (aH !== bH) return aH - bH;
+          }
+          if (a.codigoNcm.startsWith(rawTerm) && !b.codigoNcm.startsWith(rawTerm)) return -1;
+          if (!a.codigoNcm.startsWith(rawTerm) && b.codigoNcm.startsWith(rawTerm)) return 1;
+          return 0;
+        });
+
+        return resultados.slice(0, limite);
+      }
+
+      async buscarPorTexto(texto, limite = 15) {
+        return await this.buscarPorTermino(texto, limite);
+      }
+    }
+
+    class PaisDAL {
+      constructor() {
+        // Catálogo oficial de países y parámetros de flete según Base_ImportaPlus.sql y BiancaBonelli-main
+        this._paises = [
+          new PaisBE({ codigo: 'CHN', codigoIso: 'CHN', nombre: 'China (Extrazona)', esIntrazona: false, fleteEstimadoPct: 10.0, fleteParametricoStd: 2400, seguroPctStd: 1.0 }),
+          new PaisBE({ codigo: 'USA', codigoIso: 'USA', nombre: 'Estados Unidos (Extrazona)', esIntrazona: false, fleteEstimadoPct: 8.0, fleteParametricoStd: 1800, seguroPctStd: 1.0 }),
+          new PaisBE({ codigo: 'BRA', codigoIso: 'BRA', nombre: 'Brasil (Mercosur - Intrazona)', esIntrazona: true, fleteEstimadoPct: 5.0, fleteParametricoStd: 600, seguroPctStd: 1.0 }),
+          new PaisBE({ codigo: 'URY', codigoIso: 'URY', nombre: 'Uruguay (Mercosur - Intrazona)', esIntrazona: true, fleteEstimadoPct: 4.0, fleteParametricoStd: 400, seguroPctStd: 1.0 }),
+          new PaisBE({ codigo: 'PRY', codigoIso: 'PRY', nombre: 'Paraguay (Mercosur - Intrazona)', esIntrazona: true, fleteEstimadoPct: 4.5, fleteParametricoStd: 500, seguroPctStd: 1.0 }),
+          new PaisBE({ codigo: 'DEU', codigoIso: 'DEU', nombre: 'Alemania (Extrazona)', esIntrazona: false, fleteEstimadoPct: 9.0, fleteParametricoStd: 2000, seguroPctStd: 1.0 }),
+          new PaisBE({ codigo: 'ESP', codigoIso: 'ESP', nombre: 'España (Extrazona)', esIntrazona: false, fleteEstimadoPct: 8.5, fleteParametricoStd: 1900, seguroPctStd: 1.0 }),
+          new PaisBE({ codigo: 'ITA', codigoIso: 'ITA', nombre: 'Italia (Extrazona)', esIntrazona: false, fleteEstimadoPct: 9.0, fleteParametricoStd: 1950, seguroPctStd: 1.0 }),
+          new PaisBE({ codigo: 'VNM', codigoIso: 'VNM', nombre: 'Vietnam (Extrazona)', esIntrazona: false, fleteEstimadoPct: 11.0, fleteParametricoStd: 2400, seguroPctStd: 1.0 })
+        ];
+      }
+
+      async obtenerPaises() {
+        return this._paises;
+      }
+
+      async obtenerTodos() {
+        return this._paises;
+      }
+
+      async obtenerPorCodigo(codigo) {
+        return this._paises.find(p => p.codigo === codigo || p.codigoIso === codigo) || this._paises[0];
+      }
+    }
+
+    class CalculadoraArancelariaDAL {
+      constructor() {
+        this._historial = [];
+      }
+
+      async obtenerParametrosRegulatorios() {
+        return {
+          tasaEstadisticaPct: 3.0,
+          ivaGeneralPct: 21.0,
+          ivaReducidoBKPct: 10.5,
+          percepcionIvaGeneralPct: 20.0,
+          percepcionIvaReducidoPct: 10.0,
+          percepcionGananciasGeneralPct: 6.0,
+          percepcionGananciasNoCatPct: 11.0,
+          arancelSimFijoUSD: 28.0,
+          digitalizacionFijaUSD: 10.0,
+          totalSimDigitalizacionUSD: 38.0,
+          cotizacionOficialBNA: 1420.50
+        };
+      }
+
+      async obtenerCotizacionBna() {
+        const params = await this.obtenerParametrosRegulatorios();
+        return params.cotizacionOficialBNA;
+      }
+
+      async guardarSimulacion(be) {
+        this._historial.push(be);
+        return true;
+      }
+    }
+
+    /*************************************************************************
+     * 3. CAPA BLL (Business Logic Layer - DiagramaClases_PN1 y DSS CU02)
+     *************************************************************************/
+    class PosicionArancelariaBLL {
+      constructor(posicionDAL = new PosicionArancelariaDAL()) {
+        this.posicionDAL = posicionDAL;
+      }
+
+      async buscarPosiciones(texto, limite = 15) {
+        return await this.posicionDAL.buscarPorTermino(texto, limite);
+      }
+
+      async obtenerPorCodigo(codigoNcm) {
+        return await this.posicionDAL.obtenerPorCodigo(codigoNcm);
+      }
+
+      evaluarRegimen(posicion, aplicarExcepcion = true) {
+        if (!posicion) return null;
+        if (posicion.poseeExcepcion && aplicarExcepcion) {
+          return {
+            tipo: 'EXCEPCION',
+            alicuota: posicion.arancelAplicableExcepcion,
+            decreto: posicion.anexoExcepcion,
+            condicion: posicion.condicionExcepcion
+          };
+        }
+        return {
+          tipo: 'AEC_GENERAL',
+          alicuota: posicion.arancelExternoComun,
+          decreto: 'Arancel Externo Común (AEC Mercosur)',
+          condicion: ''
+        };
+      }
+    }
+
+    class PaisBLL {
+      constructor(paisDAL = new PaisDAL()) {
+        this.paisDAL = paisDAL;
+      }
+
+      async obtenerPaises() {
+        return await this.paisDAL.obtenerPaises();
+      }
+
+      async obtenerPorCodigo(codigo) {
+        return await this.paisDAL.obtenerPorCodigo(codigo);
+      }
+
+      estimarFleteYSeguro(fobTotal, pais) {
+        const pctFlete = pais ? (pais.fleteEstimadoPct || 8.0) : 8.0;
+        const fleteCalculado = +(Math.max(50, fobTotal * (pctFlete / 100))).toFixed(2);
+        const pctSeguro = pais ? (pais.seguroPctStd || 1.0) : 1.0;
+        const seguroCalculado = +(Math.max(10, fobTotal * (pctSeguro / 100))).toFixed(2);
+        return { flete: fleteCalculado, seguro: seguroCalculado };
+      }
+    }
+
+    /**
+     * Patrón GoF Template Method (CalculadorAduaneroTemplate)
+     * Respeta exactamente los pasos del Diagrama de Secuencia CU02 y Diagrama de Clases PN1
+     */
+    class CalculadorAduaneroTemplate {
+      liquidarTemplate(be, parametros) {
+        this.calcularFob(be);
+        this.calcularFleteYSeguro(be);
+        this.calcularCif(be);
+        this.determinarDerechosImportacion(be, parametros);
+        this.calcularTasaEstadistica(be, parametros);
+        this.calcularBaseImponibleInterior(be);
+        this.calcularImpuestosInteriores(be, parametros);
+        this.calcularCargosFijos(be, parametros);
+        this.consolidarTotales(be, parametros);
+        return be;
+      }
+
+      calcularFob(be) {
+        be.fobTotal = +(be.cantidad * be.precioFobUnitario).toFixed(2);
+      }
+
+      calcularFleteYSeguro(be) {
+        // Respeta el valor ingresado por el usuario (incluso si es 0).
+        // Solo si el usuario explícitamente solicitó estimación automática se calculan los supletorios.
+        if (be.esEstimacionFlete) {
+          const pctFlete = be.pais ? (be.pais.fleteEstimadoPct || 8.0) : 8.0;
+          be.flete = +(Math.max(50, be.fobTotal * (pctFlete / 100))).toFixed(2);
+        }
+        be.fleteUsd = be.flete;
+
+        if (be.esEstimacionSeguro) {
+          const pctSeguro = be.pais ? (be.pais.seguroPctStd || 1.0) : 1.0;
+          be.seguro = +(Math.max(10, be.fobTotal * (pctSeguro / 100))).toFixed(2);
+        }
+        be.seguroUsd = be.seguro;
+      }
+
+      calcularCif(be) {
+        be.cifAduanero = +(be.fobTotal + be.flete + be.seguro).toFixed(2);
+        be.cifUsd = be.cifAduanero;
+      }
+
+      determinarDerechosImportacion(be, parametros) {
+        throw new Error('Debe ser implementado por la subclase concreta');
+      }
+
+      calcularTasaEstadistica(be, parametros) {
+        if (be.pais.esIntrazona || be.posicion.esBienDeCapital) {
+          be.alicuotaEstadistica = 0.0;
+          be.montoEstadistica = 0.0;
+          return;
+        }
+        const alicuota = parametros.tasaEstadisticaPct || 3.0;
+        be.alicuotaEstadistica = alicuota;
+        const tasaBruta = +(be.cifAduanero * (alicuota / 100)).toFixed(2);
+
+        // Topes legales Decreto 99/2019
+        let topeMaximo = 150000;
+        if (be.cifAduanero < 10000) topeMaximo = 180;
+        else if (be.cifAduanero < 100000) topeMaximo = 3000;
+        else if (be.cifAduanero < 1000000) topeMaximo = 30000;
+
+        be.montoEstadistica = +(Math.min(tasaBruta, topeMaximo)).toFixed(2);
+      }
+
+      calcularBaseImponibleInterior(be) {
+        be.baseImponibleInterior = +(be.cifAduanero + be.montoDie + be.montoEstadistica).toFixed(2);
+      }
+
+      calcularImpuestosInteriores(be, parametros) {
+        const esReducido = be.posicion.esBienDeCapital || be.posicion.esInformaticaTelecom;
+        be.alicuotaIva = esReducido ? parametros.ivaReducidoBKPct : parametros.ivaGeneralPct;
+        be.montoIva = +(be.baseImponibleInterior * (be.alicuotaIva / 100)).toFixed(2);
+
+        be.alicuotaIvaAdicional = esReducido ? parametros.percepcionIvaReducidoPct : parametros.percepcionIvaGeneralPct;
+        be.montoIvaAdicional = +(be.baseImponibleInterior * (be.alicuotaIvaAdicional / 100)).toFixed(2);
+
+        be.alicuotaGanancias = be.esInscriptoGanancias
+          ? parametros.percepcionGananciasGeneralPct
+          : parametros.percepcionGananciasNoCatPct;
+        be.montoGanancias = +(be.baseImponibleInterior * (be.alicuotaGanancias / 100)).toFixed(2);
+      }
+
+      calcularCargosFijos(be, parametros) {
+        be.arancelSim = parametros.arancelSimFijoUSD;
+        be.digitalizacionSim = parametros.digitalizacionFijaUSD;
+        be.totalSimDigitalizacion = parametros.totalSimDigitalizacionUSD;
+      }
+
+      consolidarTotales(be, parametros) {
+        be.totalGravamenes = +(
+          be.montoDie +
+          be.montoEstadistica +
+          be.montoIva +
+          be.montoIvaAdicional +
+          be.montoGanancias +
+          be.totalSimDigitalizacion
+        ).toFixed(2);
+
+        be.costoTotalNacionalizado = +(be.cifAduanero + be.totalGravamenes).toFixed(2);
+        be.costoUnitarioNacionalizado = +(be.costoTotalNacionalizado / be.cantidad).toFixed(2);
+        be.ratioSobrecostoPct = be.fobTotal > 0
+          ? +(((be.costoTotalNacionalizado - be.fobTotal) / be.fobTotal) * 100).toFixed(1)
+          : 0;
+
+        be.cotizacionBna = parametros.cotizacionOficialBNA;
+        be.costoTotalARS = +(be.costoTotalNacionalizado * be.cotizacionBna).toFixed(2);
+
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let hash = 'IMP-2026-';
+        for (let i = 0; i < 6; i++) hash += chars.charAt(Math.floor(Math.random() * chars.length));
+        be.hashCotizacion = hash;
+
+        be._desglose = [];
+        be.agregarGravamen(new GravamenItemBE({
+          tipoGravamen: 'Derecho de Importación (DIE)',
+          baseImponible: be.cifAduanero,
+          alicuota: be.alicuotaDie,
+          montoUsd: be.montoDie,
+          descripcion: be.tratamientoArancelario
+        }));
+        be.agregarGravamen(new GravamenItemBE({
+          tipoGravamen: 'Tasa de Estadística Aduanera',
+          baseImponible: be.cifAduanero,
+          alicuota: be.alicuotaEstadistica,
+          montoUsd: be.montoEstadistica,
+          descripcion: (be.pais.esIntrazona || be.posicion.esBienDeCapital)
+            ? 'Exento (0%) por acuerdo Mercosur o Bien de Capital (BK)'
+            : '3% s/ CIF con escala de topes legales (Decreto 99/2019)'
+        }));
+        be.agregarGravamen(new GravamenItemBE({
+          tipoGravamen: `IVA Aduanero DGA (${be.alicuotaIva}%)`,
+          baseImponible: be.baseImponibleInterior,
+          alicuota: be.alicuotaIva,
+          montoUsd: be.montoIva,
+          descripcion: (be.posicion.esBienDeCapital || be.posicion.esInformaticaTelecom)
+            ? 'Alícuota reducida 10.5% para Bienes de Capital (BK) / Informática (BIT)'
+            : 'Alícuota general 21% s/ Base Imponible Interior'
+        }));
+        be.agregarGravamen(new GravamenItemBE({
+          tipoGravamen: `Percepción IVA Adicional (${be.alicuotaIvaAdicional}%)`,
+          baseImponible: be.baseImponibleInterior,
+          alicuota: be.alicuotaIvaAdicional,
+          montoUsd: be.montoIvaAdicional,
+          descripcion: 'Régimen de percepción aduanera RG AFIP 2281'
+        }));
+        be.agregarGravamen(new GravamenItemBE({
+          tipoGravamen: `Percepción Imp. a las Ganancias (${be.alicuotaGanancias}%)`,
+          baseImponible: be.baseImponibleInterior,
+          alicuota: be.alicuotaGanancias,
+          montoUsd: be.montoGanancias,
+          descripcion: be.esInscriptoGanancias
+            ? '6% Responsable Inscripto (RG AFIP 2281)'
+            : '11% Sujeto No Categorizado / Particular'
+        }));
+        be.agregarGravamen(new GravamenItemBE({
+          tipoGravamen: 'Arancel SIM + Digitalización',
+          baseImponible: be.totalSimDigitalizacion,
+          alicuota: 0,
+          montoUsd: be.totalSimDigitalizacion,
+          descripcion: 'Cargo fijo Sistema Informático Malvina (USD 28) + Digitalización (USD 10)'
+        }));
+      }
+    }
+
+    class LiquidacionIntrazonaBLL extends CalculadorAduaneroTemplate {
+      determinarDerechosImportacion(be) {
+        be.tratamientoArancelario = 'Intrazona Mercosur (ACE 18 - Exento 0% DIE)';
+        be.alicuotaDie = 0.0;
+        be.montoDie = 0.0;
+      }
+    }
+
+    class LiquidacionExtrazonaGeneralBLL extends CalculadorAduaneroTemplate {
+      determinarDerechosImportacion(be) {
+        be.tratamientoArancelario = 'Extrazona — Arancel Externo Común (AEC)';
+        be.alicuotaDie = be.posicion.arancelExternoComun;
+        be.montoDie = +(be.cifAduanero * (be.alicuotaDie / 100)).toFixed(2);
+      }
+    }
+
+    class LiquidacionExcepcionArancelariaBLL extends CalculadorAduaneroTemplate {
+      determinarDerechosImportacion(be) {
+        be.tratamientoArancelario = `Excepción Arancelaria (${be.posicion.anexoExcepcion || 'Decreto 557/2023'})`;
+        be.alicuotaDie = be.posicion.arancelAplicableExcepcion;
+        be.montoDie = +(be.cifAduanero * (be.alicuotaDie / 100)).toFixed(2);
+      }
+    }
+
+    class CalculadoraArancelariaBLL {
+      constructor(calculadoraDAL = new CalculadoraArancelariaDAL()) {
+        this.calculadoraDAL = calculadoraDAL;
+      }
+
+      validar(be) {
+        if (!be) throw new Error('La entidad CalculadoraArancelariaBE es requerida.');
+        if (!be.posicion) throw new Error('Debe seleccionar una posición arancelaria NCM.');
+        if (!be.pais) throw new Error('Debe seleccionar un país de origen.');
+        if (be.cantidad <= 0) throw new Error('La cantidad debe ser mayor a cero.');
+        if (be.precioFobUnitario <= 0) throw new Error('El valor FOB unitario debe ser mayor a cero.');
+        return true;
+      }
+
+      obtenerTemplateLiquidacion(be) {
+        if (be.pais.esIntrazona) return new LiquidacionIntrazonaBLL();
+        if (be.aplicarExcepcion && be.posicion.poseeExcepcion) return new LiquidacionExcepcionArancelariaBLL();
+        return new LiquidacionExtrazonaGeneralBLL();
+      }
+
+      async liquidar(be) {
+        this.validar(be);
+        const parametros = await this.calculadoraDAL.obtenerParametrosRegulatorios();
+        const template = this.obtenerTemplateLiquidacion(be);
+        template.liquidarTemplate(be, parametros);
+        await this.calculadoraDAL.guardarSimulacion(be);
+        return be;
+      }
+    }
+
+    /*************************************************************************
+     * 4. CAPA GUI (Controlador MVP Proceso de Negocio 1: CU01, CU02 y CU03)
+     *************************************************************************/
+    const posicionDAL = new PosicionArancelariaDAL();
+    const posicionBLL = new PosicionArancelariaBLL(posicionDAL);
+    const paisBLL = new PaisBLL();
+    const calculadoraBLL = new CalculadoraArancelariaBLL();
+
+    let posicionSeleccionada = null;
+    let paisesLista = [];
+
+    function fmt(num) {
+      return (parseFloat(num) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function actualizarSubtotalFob() {
+      const cant = parseInt(document.getElementById('txt-cantidad').value) || 0;
+      const unit = parseFloat(document.getElementById('txt-fob-unitario').value) || 0;
+      document.getElementById('txt-fob-total').value = (cant * unit).toFixed(2);
+    }
+
+    function seleccionarPosicion(pos) {
+      posicionSeleccionada = pos;
+      document.getElementById('txt-ncm').value = `${pos.codigoNcm} — ${pos.descripcion}`;
+      document.getElementById('lista-sugerencias').style.display = 'none';
+
+      const boxDetalle = document.getElementById('detalle-ncm');
+      boxDetalle.classList.remove('hidden');
+      boxDetalle.innerHTML = `
+        <strong>Código NCM:</strong> ${pos.codigoNcm} |
+        <strong>Tipo de Bien:</strong> ${pos.tipoBien} |
+        <strong>AEC Base:</strong> ${pos.arancelExternoComun}% |
+        <strong>IVA DGA:</strong> ${pos.ivaAlicuota}%
+        ${pos.poseeExcepcion ? `<br><strong>Excepción Disponible:</strong> ${pos.anexoExcepcion} — Arancel Aplicable: <strong>${pos.arancelAplicableExcepcion}%</strong> ${pos.condicionExcepcion ? '(' + pos.condicionExcepcion + ')' : ''}` : ''}
+      `;
+
+      const boxEx = document.getElementById('box-excepcion');
+      boxEx.style.display = pos.poseeExcepcion ? 'flex' : 'none';
+    }
+
+    async function inicializarMVP() {
+      const todas = await posicionDAL.obtenerTodas();
+      paisesLista = await paisBLL.obtenerPaises();
+
+      const estadoEl = document.getElementById('estado-db');
+      estadoEl.textContent = `Base de datos activa: ${posicionDAL.fuenteDatos || ('Catálogo NCM (' + todas.length + ' registros)')}`;
+
+      // Poblar selector de países
+      const selPais = document.getElementById('sel-pais');
+      selPais.innerHTML = paisesLista.map(p =>
+        `<option value="${p.codigoIso}">${p.nombre} — Flete est.: ${p.fleteEstimadoPct}%</option>`
+      ).join('');
+
+      // Seleccionar posición inicial por defecto (ej. 8471.30.12 Notebooks o primera del catálogo)
+      const inicial = await posicionBLL.obtenerPorCodigo('8471.30.12') || todas[0];
+      if (inicial) seleccionarPosicion(inicial);
+
+      // Eventos CU01: Búsqueda incremental NCM
+      const txtNcm = document.getElementById('txt-ncm');
+      const listaSug = document.getElementById('lista-sugerencias');
+
+      txtNcm.addEventListener('focus', () => {
+        txtNcm.select();
+      });
+
+      txtNcm.addEventListener('input', async (e) => {
+        const q = e.target.value.trim();
+        if (q.length < 2) {
+          listaSug.style.display = 'none';
+          return;
+        }
+        const resultados = await posicionBLL.buscarPosiciones(q, 15);
+        if (resultados.length === 0) {
+          listaSug.innerHTML = `<div class="sugerencia-item">Sin coincidencias para "${q}"</div>`;
+          listaSug.style.display = 'block';
+          return;
+        }
+        listaSug.innerHTML = '';
+        resultados.forEach(p => {
+          const div = document.createElement('div');
+          div.className = 'sugerencia-item';
+          const arancelTxt = p.poseeExcepcion ? `${p.arancelAplicableExcepcion}% (Excepción)` : `${p.arancelExternoComun}% (AEC)`;
+          div.innerHTML = `<strong>${p.codigoNcm}</strong> [${arancelTxt} | IVA ${p.ivaAlicuota}%] — ${p.descripcion}`;
+          div.addEventListener('click', () => seleccionarPosicion(p));
+          listaSug.appendChild(div);
+        });
+        listaSug.style.display = 'block';
+      });
+
+      document.getElementById('txt-cantidad').addEventListener('input', actualizarSubtotalFob);
+      document.getElementById('txt-fob-unitario').addEventListener('input', actualizarSubtotalFob);
+
+      // Botón estimar flete y seguro
+      document.getElementById('btn-estimar-logistica').addEventListener('click', async () => {
+        actualizarSubtotalFob();
+        const fob = parseFloat(document.getElementById('txt-fob-total').value) || 0;
+        const pais = await paisBLL.obtenerPorCodigo(selPais.value);
+        const est = paisBLL.estimarFleteYSeguro(fob, pais);
+        document.getElementById('txt-flete').value = est.flete;
+        document.getElementById('txt-seguro').value = est.seguro;
+      });
+
+      // Botón Calcular (CU02 -> CU03)
+      document.getElementById('btn-calcular').addEventListener('click', ejecutarLiquidacionPN1);
+
+      // Botón mostrar/ocultar desglose (CU03)
+      document.getElementById('btn-toggle-desglose').addEventListener('click', () => {
+        const fs = document.getElementById('fieldset-desglose');
+        fs.classList.toggle('hidden');
+      });
+
+      actualizarSubtotalFob();
+    }
+
+    async function ejecutarLiquidacionPN1() {
+      try {
+        if (!posicionSeleccionada) {
+          alert('Seleccione primero una Posición Arancelaria NCM.');
+          return;
+        }
+        const codigoPais = document.getElementById('sel-pais').value;
+        const pais = await paisBLL.obtenerPorCodigo(codigoPais);
+        const cantidad = parseInt(document.getElementById('txt-cantidad').value) || 1;
+        const precioFobUnitario = parseFloat(document.getElementById('txt-fob-unitario').value) || 0;
+        const fleteInput = parseFloat(document.getElementById('txt-flete').value) || 0;
+        const seguroInput = parseFloat(document.getElementById('txt-seguro').value) || 0;
+        const esInscripto = document.getElementById('sel-ganancias').value === 'inscripto';
+        const aplicarExcepcion = document.getElementById('chk-excepcion').checked;
+
+        const be = new CalculadoraArancelariaBE({
+          posicion: posicionSeleccionada,
+          pais: pais,
+          cantidad: cantidad,
+          precioFobUnitario: precioFobUnitario,
+          flete: fleteInput,
+          seguro: seguroInput,
+          esEstimacionFlete: false,
+          esEstimacionSeguro: false,
+          esInscriptoGanancias: esInscripto,
+          aplicarExcepcion: aplicarExcepcion
+        });
+
+        await calculadoraBLL.liquidar(be);
+
+        renderizarResultadosYDesglose(be);
+      } catch (err) {
+        alert('Error en la liquidación: ' + err.message);
+      }
+    }
+
+    function renderizarResultadosYDesglose(be) {
+      document.getElementById('seccion-resultados').classList.remove('hidden');
+
+      document.getElementById('resumen-cabecera').innerHTML = `
+        <strong>Posición NCM:</strong> ${be.posicion.codigoNcm} — ${be.posicion.descripcion}<br>
+        <strong>Origen:</strong> ${be.pais.nombre} | <strong>Régimen Aplicado:</strong> ${be.tratamientoArancelario}
+      `;
+
+      document.getElementById('res-fob').textContent = 'USD ' + fmt(be.fobTotal);
+      document.getElementById('res-cif').textContent = 'USD ' + fmt(be.cifAduanero);
+      document.getElementById('res-gravamenes').textContent = 'USD ' + fmt(be.totalGravamenes);
+      document.getElementById('res-sobrecosto').textContent = '+' + be.ratioSobrecostoPct + '%';
+      document.getElementById('res-total-usd').textContent = 'USD ' + fmt(be.costoTotalNacionalizado);
+      document.getElementById('res-unitario-usd').textContent = 'USD ' + fmt(be.costoUnitarioNacionalizado);
+      document.getElementById('res-total-ars').textContent = 'ARS ' + fmt(be.costoTotalARS) + ` (TC BNA $${be.cotizacionBna})`;
+      document.getElementById('res-hash').textContent = be.hashCotizacion;
+
+      // Renderizar Tabla de Desglose (CU03)
+      const tbody = document.getElementById('tabla-desglose-body');
+      const filasConformacion = [
+        `<tr>
+          <td>1. Valor FOB Total Mercadería</td>
+          <td>${be.cantidad} unidades × USD ${fmt(be.precioFobUnitario)}</td>
+          <td class="num">-</td>
+          <td class="num">-</td>
+          <td class="num">USD ${fmt(be.fobTotal)}</td>
+        </tr>`,
+        `<tr>
+          <td>2. Flete Internacional</td>
+          <td>${be.esEstimacionFlete ? 'Estimado paramétrico (' + be.pais.fleteEstimadoPct + '% s/ FOB)' : 'Monto declarado por el usuario'}</td>
+          <td class="num">USD ${fmt(be.fobTotal)}</td>
+          <td class="num">${be.esEstimacionFlete ? be.pais.fleteEstimadoPct + '%' : '-'}</td>
+          <td class="num">USD ${fmt(be.flete)}</td>
+        </tr>`,
+        `<tr>
+          <td>3. Seguro Internacional</td>
+          <td>${be.esEstimacionSeguro ? 'Estimado supletorio legal (' + be.pais.seguroPctStd + '% s/ FOB, mín. USD 10)' : 'Monto declarado por el usuario'}</td>
+          <td class="num">USD ${fmt(be.fobTotal)}</td>
+          <td class="num">${be.esEstimacionSeguro ? be.pais.seguroPctStd + '%' : '-'}</td>
+          <td class="num">USD ${fmt(be.seguro)}</td>
+        </tr>`,
+        `<tr class="fila-destacada">
+          <td>VALOR BASE ADUANERO (CIF)</td>
+          <td>Base Imponible de Derechos y Tasa de Estadística (FOB + Flete + Seguro)</td>
+          <td class="num">-</td>
+          <td class="num">-</td>
+          <td class="num">USD ${fmt(be.cifAduanero)}</td>
+        </tr>`
+      ];
+
+      const filasGravamenes = be.obtenerDesglose().map((g, idx) => {
+        const extraFilaBaseInterior = (idx === 1) ? `
+          <tr class="fila-destacada">
+            <td>BASE IMPONIBLE IMPUESTOS INTERIORES</td>
+            <td>CIF + Derecho de Importación (DIE) + Tasa de Estadística</td>
+            <td class="num">-</td>
+            <td class="num">-</td>
+            <td class="num">USD ${fmt(be.baseImponibleInterior)}</td>
+          </tr>
+        ` : '';
+        return `
+          <tr>
+            <td>${g.tipoGravamen}</td>
+            <td>${g.descripcion}</td>
+            <td class="num">USD ${fmt(g.baseImponible)}</td>
+            <td class="num">${g.alicuota > 0 ? g.alicuota + '%' : 'Fijo'}</td>
+            <td class="num">USD ${fmt(g.montoUsd)}</td>
+          </tr>
+          ${extraFilaBaseInterior}
+        `;
+      });
+
+      const filaTotal = `
+        <tr class="fila-destacada">
+          <td colspan="4">TOTAL GRAVÁMENES E IMPUESTOS ADUANEROS (DGA / ARCA)</td>
+          <td class="num">USD ${fmt(be.totalGravamenes)}</td>
+        </tr>
+        <tr class="fila-destacada">
+          <td colspan="4">COSTO TOTAL NACIONALIZADO PUESTO EN PLAZA (CIF + Gravámenes)</td>
+          <td class="num">USD ${fmt(be.costoTotalNacionalizado)}</td>
+        </tr>
+      `;
+
+      tbody.innerHTML = filasConformacion.join('') + filasGravamenes.join('') + filaTotal;
+
+      // Caja de Fórmulas Normativas Aplicadas (CU03 - desplegarCajaFormulasNormativas)
+      document.getElementById('caja-formulas').textContent =
+        `FÓRMULAS NORMATIVAS APLICADAS (Código Aduanero Ley 22.415 / Dec. 557/2023 / RG 2281):\n` +
+        `1) FOB Total = Cantidad (${be.cantidad}) × FOB Unitario (USD ${fmt(be.precioFobUnitario)}) = USD ${fmt(be.fobTotal)}\n` +
+        `2) Valor CIF = FOB (USD ${fmt(be.fobTotal)}) + Flete (USD ${fmt(be.flete)}) + Seguro (USD ${fmt(be.seguro)}) = USD ${fmt(be.cifAduanero)}\n` +
+        `3) DIE = CIF (USD ${fmt(be.cifAduanero)}) × ${be.alicuotaDie}% = USD ${fmt(be.montoDie)}\n` +
+        `4) Tasa Estadística = CIF (USD ${fmt(be.cifAduanero)}) × ${be.alicuotaEstadistica}% (con tope Dec. 99/2019) = USD ${fmt(be.montoEstadistica)}\n` +
+        `5) Base Imponible Interior = CIF + DIE + Estadística = USD ${fmt(be.baseImponibleInterior)}\n` +
+        `6) Impuestos Interiores = IVA (${be.alicuotaIva}%: USD ${fmt(be.montoIva)}) + Percep. IVA (${be.alicuotaIvaAdicional}%: USD ${fmt(be.montoIvaAdicional)}) + Percep. Ganancias (${be.alicuotaGanancias}%: USD ${fmt(be.montoGanancias)})\n` +
+        `7) Costo Total Nacionalizado = CIF (USD ${fmt(be.cifAduanero)}) + Total Gravámenes y SIM (USD ${fmt(be.totalGravamenes)}) = USD ${fmt(be.costoTotalNacionalizado)}`;
+    }
+
+    document.addEventListener('DOMContentLoaded', inicializarMVP);
+  </script>
+</body>
+
+</html>
