@@ -1,0 +1,5 @@
+﻿id;razon_social;tipo_operador;matricula_dga;email_notificacion;telefono;rubros_especialidad;aduanas_operativas;modalidades;experiencia_anios;rating;activo
+aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa;Bonelli & Asociados Comercio Exterior;DESPACHANTE;DGA-48921-B;contacto@importaplus.com.ar;+54 11 4321-8800;Tecnología,Electrónica,Bienes de Capital,Textil;Buenos Aires,Ezeiza,Rosario;FCL,LCL,Courier;12;4.95;True
+bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb;Importa+ Global Forwarding;FORWARDER;FWD-0842-AR;operaciones@importaplus.com.ar;+54 11 5239-1100;Carga General,Maquinaria,Repuestos Automotrices;Buenos Aires,Rosario,Paso Cristo Redentor;FCL,LCL,Consolidado Marítimo;15;4.9;True
+cccccccc-cccc-cccc-cccc-cccccccccccc;Ezeiza Express Brokerage & Logistics;DESPACHANTE;DGA-31205-E;ezeiza@importaplus.com.ar;+54 11 4480-2233;Courier Urgente,Tecnología,Farmacéutica,Muestras;Ezeiza;Aéreo,Courier,Carga Crítica;8;4.85;True
+dddddddd-dddd-dddd-dddd-dddddddddddd;Andina Cargas Internacionales;FORWARDER;FWD-1290-CUYO;mendoza@importaplus.com.ar;+54 261 420-5544;Terrestre Mercosur,Agroindustria,Repuestos;Paso Cristo Redentor,Rosario;Terrestre FTL/LTL,Multimodal;18;4.8;True

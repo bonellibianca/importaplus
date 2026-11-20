@@ -1,0 +1,42 @@
+﻿codigo_ncm;descripcion;categoria;capitulo;tipo_bien;aec;iva_alicuota;anexo_excepcion;arancel_excepcion;condicion_excepcion
+8471.30.12;Máquinas automáticas para tratamiento o procesamiento de datos, digitales, portátiles, de peso inferior o igual a 350 g, con teclado y pantalla (Notebooks / Netbooks / Laptops);Tecnología e Informática;84;BIT;16.0;10.5;Anexo II Dec 557/2023;2.0;Sujeto a verificación técnica de homologación
+8471.30.19;Las demás máquinas automáticas para tratamiento o procesamiento de datos, portátiles (Tablets y computadoras táctiles);Tecnología e Informática;84;BIT;16.0;10.5;;;
+8471.41.00;Computadoras personales de escritorio (Desktop PC) que incluyan unidad de procesamiento, memoria y entrada/salida;Tecnología e Informática;84;BIT;16.0;10.5;;;
+8471.70.10;Unidades de memoria de disco magnético rígido o estado sólido (Discos SSD y HDD internos);Tecnología e Informática;84;BIT;0.0;10.5;Lista BIT Mercosur;0.0;Insumo de informática con alícuota cero
+8471.70.20;Unidades de memoria portátiles tipo pendrive y tarjetas de memoria flash (Flash Drive / MicroSD);Tecnología e Informática;84;BIT;2.0;10.5;;;
+8471.60.52;Teclados mecánicos y de membrana para computadoras y terminales de procesamiento de datos;Tecnología e Informática;84;BIT;12.0;10.5;;;
+8471.60.53;Ratones ópticos, inalámbricos y dispositivos señaladores (Mouse gamer / trackballs);Tecnología e Informática;84;BIT;12.0;10.5;;;
+8517.13.00;Teléfonos inteligentes (Smartphones) celulares digitales con conectividad 4G/5G;Telecomunicaciones;85;BIT;16.0;10.5;;;Requiere certificación ENACOM
+8517.62.72;Routers inalámbricos para redes Wi-Fi residenciales y corporativas (Routers / Modems);Telecomunicaciones;85;BIT;12.0;10.5;Anexo I Dec 557/2023;2.0;Equipos de conectividad banda ancha
+8528.52.00;Monitores para computadoras con pantallas planas LCD, LED y OLED con entrada HDMI/DisplayPort;Tecnología e Informática;85;BIT;16.0;10.5;;;
+8504.40.10;Cargadores rápidos de baterías para teléfonos móviles, fuentes conmutadas y adaptadores USB-C;Electrónica y Accesorios;85;GENERAL;14.0;21.0;;;Requiere Seguridad Eléctrica IRAM
+8518.30.00;Auriculares con micrófono incorporado, incluso inalámbricos Bluetooth tipo TWS;Audio y Electrónica;85;GENERAL;18.0;21.0;;;
+6109.10.00;T-shirts y camisetas interiores de punto de algodón (Remeras de algodón para hombres y mujeres);Textil e Indumentaria;61;GENERAL;35.0;21.0;;;Requiere declaración jurada de composición textil
+6110.20.00;Suéteres, pulóveres, chalecos y artículos similares de punto, de algodón;Textil e Indumentaria;61;GENERAL;35.0;21.0;;;
+6203.42.00;Pantalones largos, con peto y pantalones cortos de mezclilla (Jeans denim) para hombres;Textil e Indumentaria;62;GENERAL;35.0;21.0;;;
+6204.62.00;Pantalones largos, shorts y bermudas de algodón para mujeres y niñas;Textil e Indumentaria;62;GENERAL;35.0;21.0;;;
+6402.19.00;Calzado de tenis, baloncesto, gimnasia, entrenamiento y calzado similar (Zapatillas deportivas);Calzado;64;GENERAL;35.0;21.0;;;Etiquetado de origen y composición en suela y capellada
+6403.99.90;Calzado con suela de caucho, plástico o cuero regenerado y parte superior de cuero natural (Zapatos de vestir);Calzado;64;GENERAL;35.0;21.0;;;
+6115.95.00;Medias, calcetines y soquetes de punto de algodón;Textil e Indumentaria;61;GENERAL;35.0;21.0;;;
+6211.43.00;Camperas, cazadoras y ropa de abrigo deportiva de fibras sintéticas o artificiales;Textil e Indumentaria;62;GENERAL;35.0;21.0;;;
+8428.39.90;Aparatos elevadores y transportadores continuos mecánicos para mercancías (Cintas transportadoras industriales);Maquinaria Industrial y Bienes de Capital;84;BK;14.0;10.5;Régimen BK Bienes de Capital;0.0;Bien de Capital (BK): Alícuota DIE 0% e IVA reducido al 10.5%
+8477.10.10;Máquinas de moldear por inyección de termoplásticos de fuerza de cierre superior o igual a 50 toneladas (Inyectoras de plástico);Maquinaria Industrial y Bienes de Capital;84;BK;14.0;10.5;Régimen BK Bienes de Capital;2.0;Bien de Capital (BK): IVA reducido al 10.5%
+8458.11.99;Tornos horizontales de control numérico computarizado (Torno CNC metalmecánico de precisión);Maquinaria Industrial y Bienes de Capital;84;BK;14.0;10.5;Régimen BK Bienes de Capital;2.0;Bien de Capital (BK): IVA reducido al 10.5%
+8443.32.10;Impresoras industriales de inyección de tinta continua de gran formato (Plotters de impresión comercial);Maquinaria Industrial y Bienes de Capital;84;BK;14.0;10.5;Régimen BK Bienes de Capital;0.0;Bien de Capital (BK): IVA reducido al 10.5%
+8501.52.90;Motores de corriente alterna polifásicos con potencia superior a 750W y hasta 75kW para maquinaria industrial;Maquinaria Industrial y Bienes de Capital;85;BK;14.0;10.5;Régimen BK Bienes de Capital;2.0;Bien de Capital (BK): IVA reducido al 10.5%
+8419.89.99;Intercambiadores de calor e instalaciones térmicas para pasteurización y procesamiento de alimentos;Maquinaria Industrial y Bienes de Capital;84;BK;14.0;10.5;Régimen BK Bienes de Capital;0.0;Bien de Capital (BK): IVA reducido al 10.5%
+8708.29.99;Partes y accesorios de carrocerías para automóviles, furgones y camiones (Paragolpes, guardabarros, puertas);Autopartes y Vehículos;87;GENERAL;18.0;21.0;;;Requiere Certificado CHAS (Homologación de Autopartes de Seguridad)
+8708.30.90;Frenos de disco y tambor, servofrenos y sus partes (Pastillas y discos de freno);Autopartes y Vehículos;87;GENERAL;16.0;21.0;;;Requiere Certificado CHAS
+8708.80.00;Sistemas de amortiguación de suspensión y sus partes (Amortiguadores hidráulicos y de gas);Autopartes y Vehículos;87;GENERAL;16.0;21.0;;;Requiere Certificado CHAS
+8708.93.00;Embragues mecánicos e hidráulicos y sus partes (Placa y disco de embrague, bombín);Autopartes y Vehículos;87;GENERAL;16.0;21.0;;;
+8512.20.11;Faros ópticos principales delanteros y lámparas para vehículos automotores;Autopartes y Vehículos;85;GENERAL;18.0;21.0;;;Requiere Certificado CHAS
+0901.21.00;Café tostado, sin descafeinar, en grano o molido para consumo;Alimentos y Bebidas;09;GENERAL;10.0;21.0;;;Intervención de INAL / SENASA
+1806.32.10;Chocolate con leche en bloques, tabletas o barras relleno (Barras de chocolate artesanal o premium);Alimentos y Bebidas;18;GENERAL;20.0;21.0;;;Intervención de INAL / SENASA
+2106.90.90;Preparaciones alimenticias para nutrición deportiva, proteínas aisladas de suero (Whey Protein y aminoácidos);Suplementos y Nutrición;21;GENERAL;14.0;21.0;;;Aprobación RNE y RNPA ante INAL/ANMAT
+3303.00.10;Perfumes (extractos de perfumería) y aguas de colonia de marcas internacionales;Cosmética y Perfumería;33;GENERAL;18.0;21.0;;;Intervención ANMAT Cosméticos
+3304.99.90;Cremas faciales y corporales hidratantes, sérums antiedad y protectores solares;Cosmética y Perfumería;33;GENERAL;18.0;21.0;;;Intervención ANMAT Cosméticos
+3305.10.00;Champúes y acondicionadores para el cuidado capilar;Cosmética y Perfumería;33;GENERAL;18.0;21.0;;;Intervención ANMAT Cosméticos
+9503.00.99;Juguetes interactivos, figuras de acción coleccionables, bloques de construcción (Lego) y muñecos;Juguetería y Entretenimiento;95;GENERAL;35.0;21.0;;;Ensayo de Seguridad de Juguetes e informe toxicológico de ftalatos
+9504.50.00;Consolas de videojuegos hogareñas y portátiles (PlayStation, Xbox, Nintendo Switch);Juguetería y Entretenimiento;95;GENERAL;20.0;21.0;;;Certificado de Seguridad Eléctrica
+9617.00.10;Termos y demás recipientes isotérmicos de acero inoxidable para bebidas frías y calientes (Termos Stanley);Bazar y Hogar;96;GENERAL;18.0;21.0;;;Certificado de contacto con alimentos INAL
+3924.10.00;Vajilla, envases herméticos (tuppers) y demás artículos para servicio de mesa o cocina de plástico;Bazar y Hogar;39;GENERAL;16.0;21.0;;;Certificado de contacto con alimentos INAL

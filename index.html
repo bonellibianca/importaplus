@@ -1,20 +1,70 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IMPORTA+ | Calculadora de Costos de Importación y Aduana Argentina (PN1)</title>
-  <meta name="description" content="Calculá cuánto te cuesta importar a Argentina. Simulador oficial de costos aduaneros, aranceles NCM, impuestos ARCA/DGA y flete internacional. Proceso de Negocio 1 (PN1).">
+  <title>IMPORTA +</title>
+  <meta name="description"
+    content="Calculá cuánto te cuesta importar a Argentina. Simulador de costos aduaneros oficial: cálculo de Valor CIF, aranceles NCM, Derechos de Importación (DIE), Tasa de Estadística, IVA aduanero y logística.">
+  <meta name="keywords"
+    content="calculadora de importacion, costos de importacion argentina, simulador aduanero, aranceles aduana argentina, nomenclador ncm, calcular cif argentina, derechos de importacion die, despachante de aduana, tasa de estadistica aduana, flete internacional argentina, impuestos aduana arca dga, importar a argentina">
   <meta name="author" content="Bianca Bonelli | IMPORTA+">
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+  <link rel="canonical" href="https://importaplus.com.ar/">
+
+  <!-- Open Graph / Redes Sociales y WhatsApp -->
+  <meta property="og:locale" content="es_AR">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="IMPORTA+ | Simulador oficial de costos aduaneros y tributos ARCA / DGA">
+  <meta property="og:description" content="Simulador oficial de costos aduaneros y tributos ARCA / DGA en Argentina.">
+  <meta property="og:url" content="https://importaplus.com.ar/">
+  <meta property="og:site_name" content="IMPORTA+">
+  <meta property="og:image" content="https://importaplus.com.ar/FONDO%20PANTALLA.jpg">
+  <meta property="og:image:width" content="1600">
+  <meta property="og:image:height" content="524">
+  <meta property="og:image:alt" content="IMPORTA+ - Simulador de Costos de Importación">
+
+  <!-- Twitter Cards -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="IMPORTA+ | Simulador Oficial de Importación Argentina">
+  <meta name="twitter:description" content="Simulador oficial de costos aduaneros y tributos ARCA / DGA.">
+  <meta name="twitter:image" content="https://importaplus.com.ar/FONDO%20PANTALLA.jpg">
+
+  <!-- Schema.org Datos Estructurados JSON-LD (Google Rich Snippets) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "IMPORTA+",
+    "alternateName": "IMPORTA+",
+    "url": "https://importaplus.com.ar",
+    "description": "Simulador oficial de costos aduaneros y tributos ARCA / DGA para la República Argentina.",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "All",
+    "inLanguage": "es-AR",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "creator": {
+      "@type": "Person",
+      "name": "Bianca Bonelli"
+    }
+  }
+  </script>
 
   <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
 
-  <!-- Favicon e Icono Oficial IMPORTA+ NEXA -->
+  <!-- Favicon e Iconos Web Oficiales (I+) -->
   <link rel="icon" type="image/x-icon" href="favicon.ico">
-  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="favicon-192x192.png">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 
   <!-- Tailwind CSS CDN -->
@@ -25,10 +75,9 @@
         extend: {
           colors: {
             brand: {
-              DEFAULT: '#7A1F2B',
-              hover: '#5C1720',
-              dark: '#5C1720',
-              deep: '#530618',
+              DEFAULT: '#530618',
+              hover: '#3D0411',
+              dark: '#3D0411',
               gradient: '#9B3040',
               tint: '#FFF0F2',
               bgLight: '#FFF8F8',
@@ -51,9 +100,9 @@
     }
   </script>
 
-  <!-- SheetJS Fallback y Base de datos de Excels de IMPORTA -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="datos_excels.js"></script>
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <style>
     body {
@@ -64,24 +113,36 @@
       padding: 0;
       -webkit-font-smoothing: antialiased;
     }
+
+    .custom-marker,
+    .custom-port-marker {
+      background: transparent !important;
+      border: none !important;
+    }
+
     .scrollbar-hide::-webkit-scrollbar {
       display: none;
     }
+
     .scrollbar-hide {
       -ms-overflow-style: none;
       scrollbar-width: none;
     }
+
     @media print {
       body {
         background-color: #ffffff !important;
         color: #171717 !important;
       }
+
       .print\:hidden {
         display: none !important;
       }
+
       .print\:block {
         display: block !important;
       }
+
       @page {
         margin: 1.2cm;
         size: auto;
@@ -89,1436 +150,54 @@
     }
   </style>
 </head>
+
 <body class="min-h-screen bg-[#F4F6F8] text-[#171717] antialiased">
 
-  <!-- Contenedor SPA Principal (Patrón STATE) -->
+  <!-- Contenedor SPA Principal -->
   <div id="app"></div>
 
-  <!-- ===================================================================== -->
-  <!-- ARQUITECTURA EN CAPAS: BE, DAL, BLL, GUI (Exclusivo PN1)              -->
-  <!-- ===================================================================== -->
+  <!-- ==================================================================== -->
+  <!-- CARGA DE LAS 4 CAPAS (Compatible 100% con file:/// sin CORS)          -->
+  <!-- ==================================================================== -->
+
+  <!-- 1. CAPA BE (Business Entities) -->
+  <script src="BE/PaisBE.js"></script>
+  <script src="BE/PosicionArancelariaBE.js"></script>
+  <script src="BE/ExcepcionArancelariaBE.js"></script>
+  <script src="BE/GravamenItemBE.js"></script>
+  <script src="BE/PuertoBE.js"></script>
+  <script src="BE/CalculadoraArancelariaBE.js"></script>
+
+  <!-- 2. CAPA DAL (Data Access Layer - Excel Persistence Engine & Repositorios) -->
+  <script src="DAL/database/ExcelDatabaseEmbedded.js"></script>
+  <script src="DAL/ExcelDataLoaderDAL.js"></script>
+  <script src="DAL/PaisDAL.js"></script>
+  <script src="DAL/PosicionArancelariaDAL.js"></script>
+  <script src="DAL/PuertoDAL.js"></script>
+  <script src="DAL/CalculadoraArancelariaDAL.js"></script>
+
+  <!-- 3. CAPA BLL (Business Logic Layer - Template Method & Servicios) -->
+  <script src="BLL/PaisBLL.js"></script>
+  <script src="BLL/PosicionArancelariaBLL.js"></script>
+  <script src="BLL/PuertoBLL.js"></script>
+  <script src="BLL/CalculadorAduaneroTemplate.js"></script>
+  <script src="BLL/CalculadoraArancelariaBLL.js"></script>
+
+  <!-- 4. CAPA GUI (Graphical User Interface - Patrón State & Controlador) -->
+  <script src="GUI/states/SimuladorStates.js"></script>
+  <script src="GUI/controllers/SimuladorController.js"></script>
+
+  <!-- Inicialización -->
   <script>
-    /*************************************************************************
-     * 1. CAPA BE (Business Entities)
-     *************************************************************************/
-    class PosicionArancelariaBE {
-      constructor({
-        codigoNcm = '',
-        descripcion = '',
-        categoria = '',
-        capitulo = '',
-        aec = 0,
-        arancelExternoComun = 0,
-        tipoBien = 'GENERAL',
-        esBienDeCapital = false,
-        esInformaticaTelecom = false,
-        ivaAlicuota = 21.0,
-        poseeExcepcion = false,
-        anexoExcepcion = '',
-        arancelExcepcion = 0,
-        arancelAplicableExcepcion = 0,
-        condicionExcepcion = ''
-      } = {}) {
-        this.codigoNcm = codigoNcm;
-        this.descripcion = descripcion;
-        this.categoria = categoria;
-        this.capitulo = capitulo;
-        this.aec = parseFloat(aec ?? arancelExternoComun) || 0;
-        this.arancelExternoComun = this.aec;
-        this.tipoBien = tipoBien || (esBienDeCapital ? 'BK' : (esInformaticaTelecom ? 'BIT' : 'GENERAL'));
-        this.esBienDeCapital = Boolean(esBienDeCapital || this.tipoBien === 'BK');
-        this.esInformaticaTelecom = Boolean(esInformaticaTelecom || this.tipoBien === 'BIT');
-        this.ivaAlicuota = (this.esBienDeCapital || this.esInformaticaTelecom) ? 10.5 : (parseFloat(ivaAlicuota) || 21.0);
-        this.poseeExcepcion = Boolean(poseeExcepcion);
-        this.anexoExcepcion = anexoExcepcion || '';
-        this.arancelExcepcion = parseFloat(arancelExcepcion ?? arancelAplicableExcepcion) || 0;
-        this.arancelAplicableExcepcion = this.arancelExcepcion;
-        this.condicionExcepcion = condicionExcepcion || '';
+    document.addEventListener('DOMContentLoaded', function () {
+      if (window.SimuladorController) {
+        window.app = new window.SimuladorController();
+        window.app.inicializar();
+      } else {
+        console.error('SimuladorController no se encontró cargado.');
       }
-    }
-
-    class PaisBE {
-      constructor({
-        codigo = '',
-        codigoIso = '',
-        nombre = '',
-        esIntrazona = false,
-        esMercosur = false,
-        fleteEstimadoPct = 8.0,
-        fleteParametricoStd = 1800,
-        seguroPctStd = 1.0
-      } = {}) {
-        this.codigo = codigo || codigoIso;
-        this.codigoIso = codigoIso || codigo;
-        this.nombre = nombre;
-        this.esIntrazona = Boolean(esIntrazona || esMercosur);
-        this.esMercosur = this.esIntrazona;
-        this.fleteEstimadoPct = parseFloat(fleteEstimadoPct) || 8.0;
-        this.fleteParametricoStd = parseFloat(fleteParametricoStd) || 1800;
-        this.seguroPctStd = parseFloat(seguroPctStd) || 1.0;
-      }
-    }
-
-    class GravamenItemBE {
-      constructor({
-        tipoGravamen = '',
-        baseImponible = 0,
-        alicuota = 0,
-        montoUsd = 0,
-        descripcion = ''
-      } = {}) {
-        this.tipoGravamen = tipoGravamen;
-        this.baseImponible = parseFloat(baseImponible) || 0;
-        this.alicuota = parseFloat(alicuota) || 0;
-        this.montoUsd = parseFloat(montoUsd) || 0;
-        this.descripcion = descripcion;
-      }
-    }
-
-    class CalculadoraArancelariaBE {
-      constructor({
-        posicion = null,
-        pais = null,
-        cantidad = 1,
-        precioFobUnitario = 0,
-        flete = 0,
-        seguro = 0,
-        esEstimacionFlete = false,
-        esEstimacionSeguro = false,
-        esInscriptoGanancias = true,
-        aplicarExcepcion = true
-      } = {}) {
-        this.posicion = posicion;
-        this.pais = pais;
-        this.cantidad = Math.max(1, parseInt(cantidad) || 1);
-        this.precioFobUnitario = Math.max(0, parseFloat(precioFobUnitario) || 0);
-        this.flete = Math.max(0, parseFloat(flete) || 0);
-        this.fleteUsd = this.flete;
-        this.seguro = Math.max(0, parseFloat(seguro) || 0);
-        this.seguroUsd = this.seguro;
-        this.esEstimacionFlete = Boolean(esEstimacionFlete);
-        this.esEstimacionSeguro = Boolean(esEstimacionSeguro);
-        this.esInscriptoGanancias = Boolean(esInscriptoGanancias);
-        this.aplicarExcepcion = Boolean(aplicarExcepcion);
-
-        this.fobTotal = 0;
-        this.cifAduanero = 0;
-        this.cifUsd = 0;
-        this.tratamientoArancelario = '';
-        this.alicuotaDie = 0;
-        this.montoDie = 0;
-        this.alicuotaEstadistica = 0;
-        this.montoEstadistica = 0;
-        this.baseImponibleInterior = 0;
-        this.alicuotaIva = 21;
-        this.montoIva = 0;
-        this.alicuotaIvaAdicional = 20;
-        this.montoIvaAdicional = 0;
-        this.alicuotaGanancias = 6;
-        this.montoGanancias = 0;
-        this.totalSimDigitalizacion = 38;
-        this.totalGravamenes = 0;
-        this.costoTotalNacionalizado = 0;
-        this.costoUnitarioNacionalizado = 0;
-        this.ratioSobrecostoPct = 0;
-        this.cotizacionBna = 1420.50;
-        this.costoTotalARS = 0;
-        this.hashCotizacion = '';
-        this._desglose = [];
-      }
-
-      agregarGravamen(item) {
-        this._desglose.push(item);
-      }
-
-      obtenerDesglose() {
-        return this._desglose;
-      }
-    }
-
-    /*************************************************************************
-     * 2. CAPA DAL (Data Access Layer - Catálogos de NCM y Países)
-     *************************************************************************/
-    class PosicionArancelariaDAL {
-      constructor() {
-        this._cachePosiciones = null;
-        this.fuenteDatos = '';
-      }
-
-      async cargarCatalogo() {
-        if (this._cachePosiciones && this._cachePosiciones.length > 0) {
-          return this._cachePosiciones;
-        }
-
-        // Carga desde SheetJS si se sirve por HTTP
-        if (typeof XLSX !== 'undefined' && window.location.protocol.startsWith('http')) {
-          try {
-            const resp = await fetch('./Nomenclatura_NCM_aranceles.xlsx');
-            if (resp.ok) {
-              const buf = await resp.arrayBuffer();
-              const wb = XLSX.read(buf, { type: 'array' });
-              const sheetName = wb.SheetNames.find(n => n.toLowerCase().includes('nomenclatura')) || wb.SheetNames[1] || wb.SheetNames[0];
-              const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: '' });
-              if (rows && rows.length > 0) {
-                this._cachePosiciones = rows.map(r => {
-                  const code = String(r['Código NCM'] || '').trim();
-                  const desc = String(r['Descripción completa'] || r['Descripción'] || '').trim();
-                  const aec = parseFloat(r['Arancel AEC (%)']) || 0;
-                  const tipo = String(r['Tipo'] || '').trim();
-                  const anexo = String(r['Anexo excepción'] || '').trim();
-                  const aplicable = r['Arancel aplicable (%)'] !== '' ? parseFloat(r['Arancel aplicable (%)']) : aec;
-                  const cond = String(r['Condición'] || '').trim();
-                  return new PosicionArancelariaBE({
-                    codigoNcm: code,
-                    descripcion: desc,
-                    categoria: desc.includes(' > ') ? desc.split(' > ')[0] : 'Capítulo ' + code.slice(0, 2),
-                    capitulo: code.slice(0, 2),
-                    aec: aec,
-                    tipoBien: tipo || 'GENERAL',
-                    esBienDeCapital: tipo === 'BK',
-                    esInformaticaTelecom: tipo === 'BIT',
-                    poseeExcepcion: Boolean(anexo),
-                    anexoExcepcion: anexo ? 'Decreto 557/2023 - Anexo ' + anexo : '',
-                    arancelExcepcion: aplicable,
-                    condicionExcepcion: cond
-                  });
-                }).filter(p => p.codigoNcm.length > 0);
-                this.fuenteDatos = `Excel directo (${this._cachePosiciones.length} NCM)`;
-                return this._cachePosiciones;
-              }
-            }
-          } catch (e) {}
-        }
-
-        // Carga de alta velocidad desde datos_excels.js
-        if (window.EXCEL_NCM_DATA && Array.isArray(window.EXCEL_NCM_DATA)) {
-          this._cachePosiciones = window.EXCEL_NCM_DATA.map(item => new PosicionArancelariaBE({
-            codigoNcm: item.c,
-            descripcion: item.d,
-            categoria: item.cat,
-            capitulo: item.cap,
-            aec: item.aec,
-            tipoBien: item.t || 'GENERAL',
-            esBienDeCapital: item.t === 'BK',
-            esInformaticaTelecom: item.t === 'BIT',
-            poseeExcepcion: Boolean(item.ax),
-            anexoExcepcion: item.ax ? 'Decreto 557/2023 - Anexo ' + item.ax : '',
-            arancelExcepcion: item.ap,
-            condicionExcepcion: item.co
-          }));
-          this.fuenteDatos = `Excels oficiales NCM (${this._cachePosiciones.length} registros)`;
-          return this._cachePosiciones;
-        }
-
-        this._cachePosiciones = [];
-        return this._cachePosiciones;
-      }
-
-      async obtenerTodas() {
-        return await this.cargarCatalogo();
-      }
-
-      async obtenerPorCodigo(codigoNcm) {
-        const lista = await this.cargarCatalogo();
-        const limpio = (codigoNcm || '').trim().replace(/[.\s-]/g, '');
-        return lista.find(p => p.codigoNcm.replace(/[.\s-]/g, '') === limpio) || null;
-      }
-
-      async buscarPorTermino(texto, limite = 12) {
-        const lista = await this.cargarCatalogo();
-        if (!texto || !texto.trim()) return [];
-
-        const rawTerm = texto.trim().toLowerCase();
-        const cleanNum = rawTerm.replace(/[.\s-]/g, '');
-
-        const sinonimos = {
-          'notebook': '8471.30',
-          'laptop': '8471.30',
-          'computadora': '8471.',
-          'pc': '8471.41',
-          'celular': '8517.13',
-          'smartphone': '8517.13',
-          'telefono': '8517.1',
-          'router': '8517.62',
-          'remera': '6109.10',
-          'camiseta': '6109.',
-          'zapatilla': '6402.19',
-          'calzado': '6402.',
-          'juguete': '9503.00',
-          'consola': '9504.50',
-          'monitor': '8528.52',
-          'auricular': '8518.30',
-          'termo': '9617.00',
-          'perfume': '3303.00',
-          'cafe': '0901.21',
-          'autoparte': '8708.'
-        };
-
-        let ncmHint = null;
-        for (const [k, v] of Object.entries(sinonimos)) {
-          if (rawTerm.includes(k)) {
-            ncmHint = v;
-            break;
-          }
-        }
-
-        const palabras = rawTerm.split(/\s+/).filter(Boolean);
-        const resultados = [];
-
-        for (let i = 0; i < lista.length; i++) {
-          const pos = lista[i];
-          const descLower = pos.descripcion.toLowerCase();
-          const ncmClean = pos.codigoNcm.replace(/[.\s-]/g, '');
-
-          const coincideCodigo = cleanNum.length >= 2 && (pos.codigoNcm.toLowerCase().includes(rawTerm) || ncmClean.includes(cleanNum));
-          const coincideHint = ncmHint && pos.codigoNcm.startsWith(ncmHint);
-          const coincideTexto = palabras.every(w => descLower.includes(w));
-
-          if (coincideCodigo || coincideHint || coincideTexto) {
-            resultados.push(pos);
-            if (resultados.length >= limite * 3) break;
-          }
-        }
-
-        resultados.sort((a, b) => {
-          if (ncmHint) {
-            const aH = a.codigoNcm.startsWith(ncmHint) ? 0 : 1;
-            const bH = b.codigoNcm.startsWith(ncmHint) ? 0 : 1;
-            if (aH !== bH) return aH - bH;
-          }
-          if (a.codigoNcm.startsWith(rawTerm) && !b.codigoNcm.startsWith(rawTerm)) return -1;
-          if (!a.codigoNcm.startsWith(rawTerm) && b.codigoNcm.startsWith(rawTerm)) return 1;
-          return 0;
-        });
-
-        return resultados.slice(0, limite);
-      }
-    }
-
-    class PaisDAL {
-      constructor() {
-        this._paises = [
-          new PaisBE({ codigo: 'CHN', codigoIso: 'CHN', nombre: 'China (Extrazona)', esIntrazona: false, fleteEstimadoPct: 10.0, fleteParametricoStd: 2400, seguroPctStd: 1.0 }),
-          new PaisBE({ codigo: 'USA', codigoIso: 'USA', nombre: 'Estados Unidos (Extrazona)', esIntrazona: false, fleteEstimadoPct: 8.0, fleteParametricoStd: 1800, seguroPctStd: 1.0 }),
-          new PaisBE({ codigo: 'BRA', codigoIso: 'BRA', nombre: 'Brasil (Mercosur · 0% DIE)', esIntrazona: true, fleteEstimadoPct: 5.0, fleteParametricoStd: 600, seguroPctStd: 1.0 }),
-          new PaisBE({ codigo: 'URY', codigoIso: 'URY', nombre: 'Uruguay (Mercosur · 0% DIE)', esIntrazona: true, fleteEstimadoPct: 4.0, fleteParametricoStd: 400, seguroPctStd: 1.0 }),
-          new PaisBE({ codigo: 'PRY', codigoIso: 'PRY', nombre: 'Paraguay (Mercosur · 0% DIE)', esIntrazona: true, fleteEstimadoPct: 4.5, fleteParametricoStd: 500, seguroPctStd: 1.0 }),
-          new PaisBE({ codigo: 'DEU', codigoIso: 'DEU', nombre: 'Alemania (Extrazona)', esIntrazona: false, fleteEstimadoPct: 9.0, fleteParametricoStd: 2000, seguroPctStd: 1.0 }),
-          new PaisBE({ codigo: 'ESP', codigoIso: 'ESP', nombre: 'España (Extrazona)', esIntrazona: false, fleteEstimadoPct: 8.5, fleteParametricoStd: 1900, seguroPctStd: 1.0 }),
-          new PaisBE({ codigo: 'ITA', codigoIso: 'ITA', nombre: 'Italia (Extrazona)', esIntrazona: false, fleteEstimadoPct: 9.0, fleteParametricoStd: 1950, seguroPctStd: 1.0 }),
-          new PaisBE({ codigo: 'VNM', codigoIso: 'VNM', nombre: 'Vietnam (Extrazona)', esIntrazona: false, fleteEstimadoPct: 11.0, fleteParametricoStd: 2400, seguroPctStd: 1.0 })
-        ];
-      }
-
-      async obtenerPaises() {
-        return this._paises;
-      }
-
-      async obtenerPorCodigo(codigo) {
-        return this._paises.find(p => p.codigo === codigo || p.codigoIso === codigo) || this._paises[0];
-      }
-    }
-
-    class CalculadoraArancelariaDAL {
-      async obtenerParametrosRegulatorios() {
-        return {
-          tasaEstadisticaPct: 3.0,
-          ivaGeneralPct: 21.0,
-          ivaReducidoBKPct: 10.5,
-          percepcionIvaGeneralPct: 20.0,
-          percepcionIvaReducidoPct: 10.0,
-          percepcionGananciasGeneralPct: 6.0,
-          percepcionGananciasNoCatPct: 11.0,
-          arancelSimFijoUSD: 28.0,
-          digitalizacionFijaUSD: 10.0,
-          totalSimDigitalizacionUSD: 38.0,
-          cotizacionOficialBNA: 1420.50
-        };
-      }
-    }
-
-    /*************************************************************************
-     * 3. CAPA BLL (Business Logic Layer - Patrón Template Method)
-     *************************************************************************/
-    class PosicionArancelariaBLL {
-      constructor(posicionDAL = new PosicionArancelariaDAL()) {
-        this.posicionDAL = posicionDAL;
-      }
-
-      async buscarPosiciones(texto, limite = 12) {
-        return await this.posicionDAL.buscarPorTermino(texto, limite);
-      }
-
-      async obtenerTodas() {
-        return await this.posicionDAL.obtenerTodas();
-      }
-
-      async obtenerPorCodigo(codigoNcm) {
-        return await this.posicionDAL.obtenerPorCodigo(codigoNcm);
-      }
-    }
-
-    class PaisBLL {
-      constructor(paisDAL = new PaisDAL()) {
-        this.paisDAL = paisDAL;
-      }
-
-      async obtenerPaises() {
-        return await this.paisDAL.obtenerPaises();
-      }
-
-      estimarFleteYSeguro(fobTotal, pais) {
-        const pctFlete = pais ? (pais.fleteEstimadoPct || 8.0) : 8.0;
-        const fleteCalculado = +(Math.max(50, fobTotal * (pctFlete / 100))).toFixed(2);
-        const pctSeguro = pais ? (pais.seguroPctStd || 1.0) : 1.0;
-        const seguroCalculado = +(Math.max(10, fobTotal * (pctSeguro / 100))).toFixed(2);
-        return { flete: fleteCalculado, seguro: seguroCalculado };
-      }
-    }
-
-    class CalculadorAduaneroTemplate {
-      liquidarTemplate(be, parametros) {
-        this.calcularFob(be);
-        this.calcularFleteYSeguro(be);
-        this.calcularCif(be);
-        this.determinarDerechosImportacion(be, parametros);
-        this.calcularTasaEstadistica(be, parametros);
-        this.calcularBaseImponibleInterior(be);
-        this.calcularImpuestosInteriores(be, parametros);
-        this.calcularCargosFijos(be, parametros);
-        this.consolidarTotales(be, parametros);
-        return be;
-      }
-
-      calcularFob(be) {
-        be.fobTotal = +(be.cantidad * be.precioFobUnitario).toFixed(2);
-      }
-
-      calcularFleteYSeguro(be) {
-        if (be.esEstimacionFlete) {
-          const pctFlete = be.pais ? (be.pais.fleteEstimadoPct || 8.0) : 8.0;
-          be.flete = +(Math.max(50, be.fobTotal * (pctFlete / 100))).toFixed(2);
-        }
-        be.fleteUsd = be.flete;
-
-        if (be.esEstimacionSeguro) {
-          const pctSeguro = be.pais ? (be.pais.seguroPctStd || 1.0) : 1.0;
-          be.seguro = +(Math.max(10, be.fobTotal * (pctSeguro / 100))).toFixed(2);
-        }
-        be.seguroUsd = be.seguro;
-      }
-
-      calcularCif(be) {
-        be.cifAduanero = +(be.fobTotal + be.flete + be.seguro).toFixed(2);
-        be.cifUsd = be.cifAduanero;
-      }
-
-      determinarDerechosImportacion(be, parametros) {
-        throw new Error('Debe implementarse en la subclase');
-      }
-
-      calcularTasaEstadistica(be, parametros) {
-        if (be.pais.esIntrazona || be.posicion.esBienDeCapital) {
-          be.alicuotaEstadistica = 0.0;
-          be.montoEstadistica = 0.0;
-          return;
-        }
-        const alicuota = parametros.tasaEstadisticaPct || 3.0;
-        be.alicuotaEstadistica = alicuota;
-        const tasaBruta = +(be.cifAduanero * (alicuota / 100)).toFixed(2);
-
-        // Topes Legales Decreto 99/2019
-        let topeMaximo = 150000;
-        if (be.cifAduanero < 10000) topeMaximo = 180;
-        else if (be.cifAduanero < 100000) topeMaximo = 3000;
-        else if (be.cifAduanero < 1000000) topeMaximo = 30000;
-
-        be.montoEstadistica = +(Math.min(tasaBruta, topeMaximo)).toFixed(2);
-      }
-
-      calcularBaseImponibleInterior(be) {
-        be.baseImponibleInterior = +(be.cifAduanero + be.montoDie + be.montoEstadistica).toFixed(2);
-      }
-
-      calcularImpuestosInteriores(be, parametros) {
-        const esReducido = be.posicion.esBienDeCapital || be.posicion.esInformaticaTelecom;
-        be.alicuotaIva = esReducido ? parametros.ivaReducidoBKPct : parametros.ivaGeneralPct;
-        be.montoIva = +(be.baseImponibleInterior * (be.alicuotaIva / 100)).toFixed(2);
-
-        be.alicuotaIvaAdicional = esReducido ? parametros.percepcionIvaReducidoPct : parametros.percepcionIvaGeneralPct;
-        be.montoIvaAdicional = +(be.baseImponibleInterior * (be.alicuotaIvaAdicional / 100)).toFixed(2);
-
-        be.alicuotaGanancias = be.esInscriptoGanancias
-          ? parametros.percepcionGananciasGeneralPct
-          : parametros.percepcionGananciasNoCatPct;
-        be.montoGanancias = +(be.baseImponibleInterior * (be.alicuotaGanancias / 100)).toFixed(2);
-      }
-
-      calcularCargosFijos(be, parametros) {
-        be.arancelSim = parametros.arancelSimFijoUSD;
-        be.digitalizacionSim = parametros.digitalizacionFijaUSD;
-        be.totalSimDigitalizacion = parametros.totalSimDigitalizacionUSD;
-      }
-
-      consolidarTotales(be, parametros) {
-        be.totalGravamenes = +(
-          be.montoDie +
-          be.montoEstadistica +
-          be.montoIva +
-          be.montoIvaAdicional +
-          be.montoGanancias +
-          be.totalSimDigitalizacion
-        ).toFixed(2);
-
-        be.costoTotalNacionalizado = +(be.cifAduanero + be.totalGravamenes).toFixed(2);
-        be.costoUnitarioNacionalizado = +(be.costoTotalNacionalizado / be.cantidad).toFixed(2);
-        be.ratioSobrecostoPct = be.fobTotal > 0
-          ? +(((be.costoTotalNacionalizado - be.fobTotal) / be.fobTotal) * 100).toFixed(1)
-          : 0;
-
-        be.cotizacionBna = parametros.cotizacionOficialBNA;
-        be.costoTotalARS = +(be.costoTotalNacionalizado * be.cotizacionBna).toFixed(2);
-
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        let hash = 'IMP-2026-';
-        for (let i = 0; i < 6; i++) hash += chars.charAt(Math.floor(Math.random() * chars.length));
-        be.hashCotizacion = hash;
-
-        be._desglose = [];
-        be.agregarGravamen(new GravamenItemBE({
-          tipoGravamen: 'Derecho de Importación (DIE)',
-          baseImponible: be.cifAduanero,
-          alicuota: be.alicuotaDie,
-          montoUsd: be.montoDie,
-          descripcion: be.tratamientoArancelario
-        }));
-        be.agregarGravamen(new GravamenItemBE({
-          tipoGravamen: 'Tasa de Estadística Aduanera',
-          baseImponible: be.cifAduanero,
-          alicuota: be.alicuotaEstadistica,
-          montoUsd: be.montoEstadistica,
-          descripcion: (be.pais.esIntrazona || be.posicion.esBienDeCapital)
-            ? 'Exento (0%) Mercosur / Bien de Capital (BK)'
-            : '3% s/ CIF con escala de topes legales (Decreto 99/2019)'
-        }));
-        be.agregarGravamen(new GravamenItemBE({
-          tipoGravamen: `IVA Aduanero DGA (${be.alicuotaIva}%)`,
-          baseImponible: be.baseImponibleInterior,
-          alicuota: be.alicuotaIva,
-          montoUsd: be.montoIva,
-          descripcion: (be.posicion.esBienDeCapital || be.posicion.esInformaticaTelecom)
-            ? 'Alícuota reducida 10.5% Bienes de Capital (BK) / Informática (BIT)'
-            : 'Alícuota general 21% s/ Base Imponible Interior'
-        }));
-        be.agregarGravamen(new GravamenItemBE({
-          tipoGravamen: `Percepción IVA Adicional (${be.alicuotaIvaAdicional}%)`,
-          baseImponible: be.baseImponibleInterior,
-          alicuota: be.alicuotaIvaAdicional,
-          montoUsd: be.montoIvaAdicional,
-          descripcion: 'Régimen de percepción aduanera RG AFIP 2281'
-        }));
-        be.agregarGravamen(new GravamenItemBE({
-          tipoGravamen: `Percepción Imp. a las Ganancias (${be.alicuotaGanancias}%)`,
-          baseImponible: be.baseImponibleInterior,
-          alicuota: be.alicuotaGanancias,
-          montoUsd: be.montoGanancias,
-          descripcion: be.esInscriptoGanancias
-            ? '6% Responsable Inscripto (RG AFIP 2281)'
-            : '11% Sujeto No Categorizado / Consumo Particular'
-        }));
-        be.agregarGravamen(new GravamenItemBE({
-          tipoGravamen: 'Arancel SIM + Digitalización',
-          baseImponible: be.totalSimDigitalizacion,
-          alicuota: 0,
-          montoUsd: be.totalSimDigitalizacion,
-          descripcion: 'Cargo fijo Sistema Informático Malvina (USD 28) + Digitalización (USD 10)'
-        }));
-      }
-    }
-
-    class LiquidacionIntrazonaBLL extends CalculadorAduaneroTemplate {
-      determinarDerechosImportacion(be) {
-        be.tratamientoArancelario = 'Intrazona Mercosur (ACE 18 - Exento 0% DIE)';
-        be.alicuotaDie = 0.0;
-        be.montoDie = 0.0;
-      }
-    }
-
-    class LiquidacionExtrazonaGeneralBLL extends CalculadorAduaneroTemplate {
-      determinarDerechosImportacion(be) {
-        be.tratamientoArancelario = 'Extrazona — Arancel Externo Común (AEC)';
-        be.alicuotaDie = be.posicion.arancelExternoComun;
-        be.montoDie = +(be.cifAduanero * (be.alicuotaDie / 100)).toFixed(2);
-      }
-    }
-
-    class LiquidacionExcepcionArancelariaBLL extends CalculadorAduaneroTemplate {
-      determinarDerechosImportacion(be) {
-        be.tratamientoArancelario = `Excepción Arancelaria (${be.posicion.anexoExcepcion || 'Decreto 557/2023'})`;
-        be.alicuotaDie = be.posicion.arancelAplicableExcepcion;
-        be.montoDie = +(be.cifAduanero * (be.alicuotaDie / 100)).toFixed(2);
-      }
-    }
-
-    class CalculadoraArancelariaBLL {
-      constructor(calculadoraDAL = new CalculadoraArancelariaDAL()) {
-        this.calculadoraDAL = calculadoraDAL;
-      }
-
-      validar(be) {
-        if (!be) throw new Error('La entidad CalculadoraArancelariaBE es requerida.');
-        if (!be.posicion) throw new Error('Debe seleccionar una posición arancelaria NCM.');
-        if (!be.pais) throw new Error('Debe seleccionar un país de origen.');
-        if (be.cantidad <= 0) throw new Error('La cantidad debe ser mayor a cero.');
-        if (be.precioFobUnitario <= 0) throw new Error('El valor FOB unitario debe ser mayor a cero.');
-        return true;
-      }
-
-      obtenerTemplateLiquidacion(be) {
-        if (be.pais.esIntrazona) return new LiquidacionIntrazonaBLL();
-        if (be.aplicarExcepcion && be.posicion.poseeExcepcion) return new LiquidacionExcepcionArancelariaBLL();
-        return new LiquidacionExtrazonaGeneralBLL();
-      }
-
-      async liquidar(be) {
-        this.validar(be);
-        const parametros = await this.calculadoraDAL.obtenerParametrosRegulatorios();
-        const template = this.obtenerTemplateLiquidacion(be);
-        template.liquidarTemplate(be, parametros);
-        return be;
-      }
-    }
-
-    /*************************************************************************
-     * 4. CAPA GUI (Patrón GoF STATE - Exclusivo PN1)
-     *************************************************************************/
-    class VistaState {
-      render(ctrl) {
-        throw new Error('Método render() debe ser implementado');
-      }
-      bindEvents(ctrl) {}
-      onEnter(ctrl) {}
-    }
-
-    /**
-     * Estado 1: Portada Principal / Hero (Botón de Acceso a la Calculadora)
-     */
-    class HeroState extends VistaState {
-      render(ctrl) {
-        return `
-          <div class="min-h-screen w-full flex flex-col justify-between overflow-hidden" style="background-color: #410112;">
-            <header class="px-6 py-4 flex items-center justify-between shrink-0">
-              <div class="flex items-center gap-2.5 cursor-pointer" onclick="window.app.setView('hero')">
-                <img src="icon.png" alt="IMPORTA+ NEXA" class="w-8 h-8 rounded-sm object-cover shadow-sm border border-white/20" onerror="this.style.display='none'">
-                <span class="text-white font-bold text-lg tracking-tight">IMPORTA <span class="text-white/60">+</span> <span class="text-xs tracking-widest font-normal text-white/50 ml-1">NEXA</span></span>
-              </div>
-              <span class="text-white/70 text-xs font-semibold uppercase tracking-widest bg-white/10 px-3 py-1 rounded-sm border border-white/15">
-                Proceso de Negocio 1 (PN1)
-              </span>
-            </header>
-
-            <div class="flex-1 flex flex-col items-center justify-center text-center px-4 w-full min-h-0 py-4">
-              <!-- Banner visual oficial IMPORTA+ NEXA -->
-              <div class="w-full max-h-[30vh] md:max-h-[38vh] flex items-center justify-center overflow-hidden mb-4">
-                <img 
-                  src="Importa_Plus.jpeg" 
-                  alt="IMPORTA+ NEXA" 
-                  class="w-full h-auto max-h-[28vh] md:max-h-[36vh] object-contain mx-auto block drop-shadow-md" 
-                  onerror="this.src='FONDO PANTALLA.jpg'"
-                />
-              </div>
-
-              <h1 class="text-2xl md:text-4xl text-white font-black tracking-tight mb-2 max-w-xl px-4">
-                Calculá cuánto realmente te cuesta importar.
-              </h1>
-              <p class="text-xs md:text-base text-white/75 mb-6 md:mb-8 max-w-md px-4 font-normal">
-                Conocé tus costos reales antes de importar. Simulador oficial de costos aduaneros y tributos ARCA / DGA.
-              </p>
-
-              <!-- Botón oficial de acceso a la calculadora (PN1) -->
-              <button 
-                type="button"
-                id="btn-acceder-calculadora"
-                onclick="window.app.setView('form')" 
-                class="bg-white text-[#530618] hover:bg-white/95 font-black text-xs md:text-sm uppercase tracking-widest px-8 md:px-12 py-4 rounded-sm shadow-2xl hover:scale-[1.02] active:scale-100 transition-all duration-200 cursor-pointer border border-white"
-              >
-                CALCULAR MI IMPORTACIÓN
-              </button>
-            </div>
-
-            <div class="px-6 py-3 border-t border-white/10 flex items-center justify-center gap-6 text-white/40 text-xs shrink-0">
-              <span>Comercio Exterior</span>
-              <span>·</span>
-              <span>Argentina</span>
-              <span>·</span>
-              <span>Calculadora Oficial PN1</span>
-            </div>
-          </div>
-        `;
-      }
-    }
-
-    /**
-     * Estado 2: Formulario de Carga de Variables Comerciales y NCM (Paso 1)
-     */
-    class FormularioState extends VistaState {
-      render(ctrl) {
-        const f = ctrl.state.form;
-        const cantNum = parseInt(f.cantidad) || 0;
-        const precioNum = parseFloat(f.precioUnidad) || 0;
-        const subtotalFOB = cantNum * precioNum;
-        const pos = ctrl.state.posicionSeleccionada;
-
-        return `
-          <div class="min-h-screen bg-[#F4F6F8]">
-            <!-- Header con paleta vinotinto oficial -->
-            <header class="bg-[#7A1F2B] px-6 py-4 flex items-center justify-between shadow-sm">
-              <div class="flex items-center gap-2.5 cursor-pointer" onclick="window.app.setView('hero')">
-                <img src="icon.png" alt="IMPORTA+ NEXA" class="w-7 h-7 rounded-sm object-cover shadow-sm border border-white/20" onerror="this.style.display='none'">
-                <span class="text-white font-bold tracking-tight text-lg">IMPORTA<span class="text-white/50">+</span> <span class="text-xs tracking-widest font-normal text-white/50 ml-0.5">NEXA</span></span>
-              </div>
-              <div class="flex items-center gap-4">
-                <button onclick="window.app.setView('hero')" class="text-white/70 text-xs font-semibold hover:text-white transition-colors cursor-pointer">
-                  ← Inicio
-                </button>
-                <span class="text-white/80 text-xs font-bold uppercase tracking-widest bg-black/20 px-2.5 py-1 rounded-sm border border-white/10">
-                  Paso 1 de 2 (PN1)
-                </span>
-              </div>
-            </header>
-
-            <div class="max-w-2xl mx-auto px-4 py-8 md:py-10">
-              <div class="mb-2 flex items-center gap-2">
-                <span class="text-xs font-bold uppercase tracking-widest text-[#7A1F2B]">MVP · Proceso de Negocio 1</span>
-              </div>
-              <h2 class="text-2xl md:text-3xl font-black text-[#171717] mb-1">Comencemos tu importación</h2>
-              <p class="text-[#555555] text-sm mb-6">Completá los datos para calcular el costo oficial de nacionalización aduanera.</p>
-
-              <div class="bg-white rounded-sm border border-[#D8DDE3] divide-y divide-[#F4F6F8] overflow-hidden mb-6 shadow-sm">
-                
-                <!-- Bloque 1: Información General (Obligatorio) -->
-                <div class="px-6 py-5">
-                  <div class="flex items-center gap-2 mb-4">
-                    <p class="text-xs font-bold uppercase tracking-widest text-[#7A1F2B]">Información general</p>
-                    <span class="text-[10px] font-bold bg-[#7A1F2B] text-white px-1.5 py-0.5 rounded-sm uppercase tracking-wide">Obligatorio</span>
-                  </div>
-
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- Buscador Predictivo NCM -->
-                    <div class="relative md:col-span-2">
-                      <label class="block text-xs font-bold uppercase tracking-wider text-[#555555] mb-1.5">
-                        Producto a Importar / Código NCM
-                      </label>
-                      <input 
-                        type="text" 
-                        id="input-producto"
-                        class="w-full bg-white border border-[#D8DDE3] rounded-sm px-4 py-3 text-[#171717] text-sm focus:outline-none focus:border-[#7A1F2B] focus:ring-1 focus:ring-[#7A1F2B] font-medium"
-                        placeholder="Escribí código NCM o descripción (ej: Notebook, Remera, Router, Calzado)..."
-                        value="${f.producto || (pos ? pos.descripcion : '')}"
-                        autocomplete="off"
-                      />
-                      <div id="ncm-dropdown" class="absolute left-0 right-0 top-full mt-1 bg-white border border-[#D8DDE3] rounded-sm shadow-xl z-50 max-h-64 overflow-y-auto hidden"></div>
-
-                      <!-- Tarjeta de Producto Identificado -->
-                      ${pos ? `
-                        <div class="mt-2.5 p-3.5 bg-[#FFF8F8] border border-[#F0D0D4] rounded-sm text-xs">
-                          <div class="flex justify-between items-center font-bold text-[#7A1F2B]">
-                            <span class="font-mono text-sm">${pos.codigoNcm}</span>
-                            <span class="bg-[#7A1F2B] text-white px-2 py-0.5 rounded-sm text-[10px] font-bold">
-                              Arancel AEC: ${pos.arancelExternoComun}% | IVA: ${pos.ivaAlicuota}%
-                            </span>
-                          </div>
-                          <p class="text-[#333333] mt-1 font-medium">${pos.descripcion}</p>
-                          ${pos.poseeExcepcion ? `
-                            <div class="mt-2 pt-2 border-t border-[#F0D0D4] flex items-center justify-between text-[#15803d]">
-                              <span>Beneficio Arancelario (${pos.anexoExcepcion}):</span>
-                              <span class="font-bold">Alícuota reducida ${pos.arancelAplicableExcepcion}%</span>
-                            </div>
-                            <label class="mt-2 flex items-center gap-2 cursor-pointer font-semibold text-xs text-[#171717]">
-                              <input type="checkbox" id="chk-excepcion-form" ${ctrl.state.aplicarExcepcion ? 'checked' : ''} class="accent-[#7A1F2B]">
-                              Aplicar beneficio arancelario de excepción
-                            </label>
-                          ` : ''}
-                        </div>
-                      ` : ''}
-                    </div>
-
-                    <!-- País de Origen -->
-                    <div>
-                      <label class="block text-xs font-bold uppercase tracking-wider text-[#555555] mb-1.5">País de origen</label>
-                      <select id="select-pais" class="w-full bg-white border border-[#D8DDE3] rounded-sm px-4 py-3 text-[#171717] text-sm focus:outline-none focus:border-[#7A1F2B] font-medium">
-                        ${ctrl.state.paisesCatalogo.map(p => `
-                          <option value="${p.nombre}" ${p.nombre.toLowerCase().includes(f.paisOrigen.toLowerCase()) ? 'selected' : ''}>
-                            ${p.nombre}
-                          </option>
-                        `).join('')}
-                      </select>
-                    </div>
-
-                    <!-- Cantidad -->
-                    <div>
-                      <label class="block text-xs font-bold uppercase tracking-wider text-[#555555] mb-1.5">Cantidad (Unidades)</label>
-                      <input type="number" id="input-cantidad" min="1" step="1" class="w-full bg-white border border-[#D8DDE3] rounded-sm px-4 py-3 text-[#171717] text-sm focus:outline-none focus:border-[#7A1F2B] font-medium" value="${f.cantidad}">
-                    </div>
-
-                    <!-- Precio FOB Unitario -->
-                    <div class="md:col-span-2">
-                      <label class="block text-xs font-bold uppercase tracking-wider text-[#555555] mb-1.5">Valor por unidad (USD FOB)</label>
-                      <div class="relative">
-                        <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7A1F2B] text-sm font-bold">USD</span>
-                        <input type="number" step="0.01" min="0.01" id="input-precio" class="w-full bg-white border border-[#D8DDE3] rounded-sm pl-14 pr-4 py-3 text-[#171717] text-sm focus:outline-none focus:border-[#7A1F2B] font-semibold" value="${f.precioUnidad}">
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Subtotal FOB en Vivo -->
-                  <div class="mt-4 bg-[#F4F6F8] border border-[#D8DDE3] rounded-sm px-4 py-3 flex items-center justify-between">
-                    <div>
-                      <p class="text-xs font-bold uppercase tracking-wider text-[#555555]">Valor total de compra (FOB Total)</p>
-                      <p class="text-[11px] text-[#7A1F2B] font-semibold mt-0.5">
-                        ${cantNum} unid. × USD ${ctrl.formatNumber(precioNum)}
-                      </p>
-                    </div>
-                    <span class="text-lg font-black text-[#7A1F2B] tabular-nums">USD ${ctrl.formatNumber(subtotalFOB)}</span>
-                  </div>
-                </div>
-
-                <!-- Bloque 2: Logística Internacional (Opcional) -->
-                <div class="px-6 py-5">
-                  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-                    <div class="flex items-center gap-2">
-                      <p class="text-xs font-bold uppercase tracking-widest text-[#7A1F2B]">Costos de transporte y seguro</p>
-                      <span class="text-[10px] font-bold border border-[#D8DDE3] text-[#555555] px-1.5 py-0.5 rounded-sm uppercase tracking-wide">Opcional</span>
-                    </div>
-                    <button type="button" onclick="window.app.estimarLogistica()" class="text-xs font-bold text-[#7A1F2B] hover:underline cursor-pointer text-left sm:text-right">
-                      Estimar con estándar legal (1% Seguro + Flete paramétrico)
-                    </button>
-                  </div>
-
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label class="block text-xs font-bold uppercase tracking-wider text-[#555555] mb-1.5">Flete internacional (USD)</label>
-                      <input type="number" step="0.01" id="input-flete" class="w-full bg-white border border-[#D8DDE3] rounded-sm px-4 py-3 text-[#171717] text-sm focus:outline-none focus:border-[#7A1F2B] font-medium" value="${f.flete}">
-                    </div>
-                    <div>
-                      <label class="block text-xs font-bold uppercase tracking-wider text-[#555555] mb-1.5">Seguro de transporte (USD)</label>
-                      <input type="number" step="0.01" id="input-seguro" class="w-full bg-white border border-[#D8DDE3] rounded-sm px-4 py-3 text-[#171717] text-sm focus:outline-none focus:border-[#7A1F2B] font-medium" value="${f.seguro}">
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Bloque 3: Condición Fiscal ante Ganancias (RG AFIP 2281) -->
-                <div class="px-6 py-4 bg-[#fafbfc]">
-                  <label class="block text-xs font-bold uppercase tracking-wider text-[#555555] mb-2">
-                    Condición Impositiva del Importador (RG AFIP 2281)
-                  </label>
-                  <div class="flex flex-col sm:flex-row gap-3 sm:gap-6 text-xs text-[#171717]">
-                    <label class="flex items-center gap-2 cursor-pointer font-semibold">
-                      <input type="radio" name="rad-ganancias" value="inscripto" ${f.condicionGanancias === 'inscripto' ? 'checked' : ''} onchange="window.app.state.form.condicionGanancias = 'inscripto'" class="accent-[#7A1F2B]">
-                      Responsable Inscripto / Reventa (6% Ganancias)
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer font-semibold">
-                      <input type="radio" name="rad-ganancias" value="no_inscripto" ${f.condicionGanancias === 'no_inscripto' ? 'checked' : ''} onchange="window.app.state.form.condicionGanancias = 'no_inscripto'" class="accent-[#7A1F2B]">
-                      Consumo Particular / No categorizado (11% Ganancias)
-                    </label>
-                  </div>
-                </div>
-
-              </div>
-
-              <!-- Botón Principal para calcular la liquidación (PN1) -->
-              <button 
-                type="button"
-                id="btn-calcular-liquidacion"
-                onclick="window.app.ejecutarLiquidacion()" 
-                class="w-full bg-[#7A1F2B] hover:bg-[#5C1720] text-white font-black text-sm uppercase tracking-widest py-4 rounded-sm transition-all duration-200 shadow-md hover:shadow-lg cursor-pointer flex items-center justify-center gap-2"
-              >
-                CALCULAR MI IMPORTACIÓN
-              </button>
-            </div>
-          </div>
-        `;
-      }
-
-      bindEvents(ctrl) {
-        const inputProd = document.getElementById('input-producto');
-        const dropdown = document.getElementById('ncm-dropdown');
-        const inputCant = document.getElementById('input-cantidad');
-        const inputPrecio = document.getElementById('input-precio');
-        const selectPais = document.getElementById('select-pais');
-        const inputFlete = document.getElementById('input-flete');
-        const inputSeguro = document.getElementById('input-seguro');
-        const chkEx = document.getElementById('chk-excepcion-form');
-
-        if (chkEx) {
-          chkEx.addEventListener('change', (e) => {
-            ctrl.state.aplicarExcepcion = e.target.checked;
-          });
-        }
-
-        if (inputProd) {
-          inputProd.addEventListener('focus', () => {
-            inputProd.select();
-          });
-
-          inputProd.addEventListener('input', async (e) => {
-            const val = e.target.value.trim();
-            ctrl.state.form.producto = val;
-            if (val.length >= 2) {
-              const res = await ctrl.posicionBLL.buscarPosiciones(val, 8);
-              if (res && res.length > 0) {
-                dropdown.innerHTML = res.map((p, idx) => `
-                  <div class="p-3 border-b border-gray-100 hover:bg-[#FFF8F8] cursor-pointer text-xs transition-colors" onclick="window.app.seleccionarNCM(${idx})">
-                    <div class="flex justify-between items-center font-bold text-[#7A1F2B] mb-0.5">
-                      <span class="font-mono">${p.codigoNcm}</span>
-                      <span class="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-700">
-                        ${p.poseeExcepcion ? 'Excepción: ' + p.arancelAplicableExcepcion + '%' : 'AEC: ' + p.arancelExternoComun + '%'} | IVA: ${p.ivaAlicuota}%
-                      </span>
-                    </div>
-                    <div class="text-[#333333] font-medium leading-snug">${p.descripcion}</div>
-                  </div>
-                `).join('');
-                dropdown.classList.remove('hidden');
-                window._ncmCache = res;
-              } else {
-                dropdown.classList.add('hidden');
-              }
-            } else {
-              dropdown.classList.add('hidden');
-            }
-          });
-        }
-
-        if (inputCant) {
-          inputCant.addEventListener('input', (e) => {
-            ctrl.state.form.cantidad = e.target.value;
-            ctrl.actualizarSubtotalEnVivo();
-          });
-        }
-
-        if (inputPrecio) {
-          inputPrecio.addEventListener('input', (e) => {
-            ctrl.state.form.precioUnidad = e.target.value;
-            ctrl.actualizarSubtotalEnVivo();
-          });
-        }
-
-        if (selectPais) {
-          selectPais.addEventListener('change', (e) => {
-            ctrl.state.form.paisOrigen = e.target.value;
-          });
-        }
-
-        if (inputFlete) {
-          inputFlete.addEventListener('input', (e) => {
-            ctrl.state.form.flete = e.target.value;
-          });
-        }
-
-        if (inputSeguro) {
-          inputSeguro.addEventListener('input', (e) => {
-            ctrl.state.form.seguro = e.target.value;
-          });
-        }
-
-        // Cerrar dropdown si se clickea afuera
-        document.addEventListener('click', (e) => {
-          if (dropdown && !dropdown.contains(e.target) && e.target !== inputProd) {
-            dropdown.classList.add('hidden');
-          }
-        }, { once: true });
-      }
-    }
-
-    /**
-     * Estado 3: Resumen de Resultados (Paso 2) con Botón para Acceder al Desglose
-     */
-    class ResultadosState extends VistaState {
-      render(ctrl) {
-        const be = ctrl.state.calculadoraBE;
-        if (!be) return '';
-
-        const items = [
-          { label: "1. Valor FOB Total Mercadería", value: be.fobTotal },
-          { label: "2. Flete Internacional", value: be.flete },
-          { label: "3. Seguro de Transporte", value: be.seguro },
-          { label: "4. Base Imponible Aduanera (CIF)", value: be.cifAduanero, highlight: true },
-          { label: `5. Arancel de Importación DIE (${be.alicuotaDie}%)`, value: be.montoDie },
-          { label: `6. Tasa de Estadística (${be.alicuotaEstadistica}%)`, value: be.montoEstadistica },
-          { label: `7. Impuestos DGA (IVA ${be.alicuotaIva}% + Percepciones)`, value: (be.montoIva + be.montoIvaAdicional + be.montoGanancias) },
-          { label: "8. Arancel SIM + Digitalización", value: be.totalSimDigitalizacion }
-        ];
-
-        return `
-          <div class="min-h-screen bg-[#F4F6F8]">
-            <!-- Header con paleta oficial -->
-            <header class="bg-[#7A1F2B] px-6 py-4 flex items-center justify-between shadow-sm">
-              <div class="flex items-center gap-2.5 cursor-pointer" onclick="window.app.setView('hero')">
-                <img src="icon.png" alt="IMPORTA+ NEXA" class="w-7 h-7 rounded-sm object-cover shadow-sm border border-white/20" onerror="this.style.display='none'">
-                <span class="text-white font-bold tracking-tight text-lg">IMPORTA<span class="text-white/50">+</span> <span class="text-xs tracking-widest font-normal text-white/50 ml-0.5">NEXA</span></span>
-              </div>
-              <button onclick="window.app.setView('form')" class="text-white/80 text-xs font-semibold hover:text-white transition-colors cursor-pointer flex items-center gap-1.5">
-                ← Modificar consulta
-              </button>
-            </header>
-
-            <div class="max-w-2xl mx-auto px-4 py-8 md:py-10">
-              <div class="mb-2">
-                <span class="text-xs font-bold uppercase tracking-widest text-[#7A1F2B]">Liquidación Aduanera (PN1)</span>
-              </div>
-              <h2 class="text-2xl font-black text-[#171717] mb-1">${be.posicion?.descripcion || 'Mercadería General'}</h2>
-              <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#555555] mb-6 font-medium">
-                <span>NCM: <strong class="font-mono text-[#171717]">${be.posicion?.codigoNcm}</strong></span>
-                <span>Origen: <strong class="text-[#171717]">${be.pais?.nombre}</strong></span>
-                <span>Volumen: <strong class="text-[#171717]">${be.cantidad} u. × USD ${ctrl.formatNumber(be.precioFobUnitario)}</strong></span>
-              </div>
-
-              <!-- Tarjeta de Costo Total Vinotinto Oficial -->
-              <div class="bg-[#7A1F2B] rounded-sm p-6 mb-5 relative overflow-hidden shadow-lg border border-[#5C1720]">
-                <div class="absolute inset-0 opacity-10" style="background: radial-gradient(circle at 80% 20%, #fff 0%, transparent 60%);"></div>
-                <div class="flex justify-between items-center mb-1">
-                  <p class="text-white/80 text-xs font-bold uppercase tracking-widest">Costo Total Estimado Puesto en Aduana</p>
-                  <span class="text-[10px] font-mono bg-black/25 text-white px-2 py-0.5 rounded-sm font-semibold">${be.hashCotizacion}</span>
-                </div>
-                <p class="text-4xl md:text-5xl font-black text-white tracking-tight">USD ${ctrl.formatNumber(be.costoTotalNacionalizado)}</p>
-                <p class="text-white/85 text-xs mt-2 font-medium">
-                  ≈ $ ${ctrl.formatNumber(be.costoTotalARS)} ARS <span class="opacity-70">(Cotización Oficial BNA: $${be.cotizacionBna})</span>
-                </p>
-                <div class="mt-4 pt-3 border-t border-white/20 flex justify-between items-center text-xs text-white/95">
-                  <span>Costo unitario nacionalizado:</span>
-                  <strong class="font-mono text-sm bg-white/10 px-2 py-0.5 rounded-sm">USD ${ctrl.formatNumber(be.costoUnitarioNacionalizado)} / unidad</strong>
-                </div>
-              </div>
-
-              <!-- Cuadro Comparativo FOB vs Desembolso Nacionalizado -->
-              <div class="bg-white border border-[#D8DDE3] rounded-sm p-4 mb-5 shadow-sm">
-                <div class="flex justify-between items-center text-xs font-bold text-[#555] mb-2 uppercase">
-                  <span>Incidencia Aduanera / Sobrecosto</span>
-                  <span class="text-[#7A1F2B] font-black">+${be.ratioSobrecostoPct}% sobre FOB</span>
-                </div>
-                <div class="grid grid-cols-2 gap-3 text-center">
-                  <div class="p-3 bg-gray-50 rounded-sm border border-gray-100">
-                    <span class="text-[11px] text-gray-500 font-bold uppercase">Compra FOB</span>
-                    <p class="text-lg font-black text-gray-800">USD ${ctrl.formatNumber(be.fobTotal)}</p>
-                  </div>
-                  <div class="p-3 bg-[#FFF8F8] rounded-sm border border-[#F0D0D4]">
-                    <span class="text-[11px] text-[#7A1F2B] font-bold uppercase">Desembolso Final</span>
-                    <p class="text-lg font-black text-[#7A1F2B]">USD ${ctrl.formatNumber(be.costoTotalNacionalizado)}</p>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Tabla de Resumen de Conceptos -->
-              <div class="bg-white border border-[#D8DDE3] rounded-sm divide-y divide-[#F4F6F8] mb-6 shadow-sm overflow-hidden">
-                ${items.map(it => `
-                  <div class="flex items-center justify-between px-5 py-3.5 ${it.highlight ? 'bg-[#FFF8F8]' : ''}">
-                    <span class="text-xs md:text-sm ${it.highlight ? 'font-bold text-[#7A1F2B]' : 'text-[#555555]'}">${it.label}</span>
-                    <span class="text-xs md:text-sm font-bold tabular-nums ${it.highlight ? 'text-[#7A1F2B]' : 'text-[#171717]'}">USD ${ctrl.formatNumber(it.value)}</span>
-                  </div>
-                `).join('')}
-              </div>
-
-              <!-- Botones de Acción (PN1) -->
-              <div class="space-y-3">
-                <!-- Botón principal para acceder al Desglose -->
-                <button 
-                  type="button"
-                  id="btn-ver-desglose"
-                  onclick="window.app.setView('breakdown')" 
-                  class="w-full bg-[#7A1F2B] hover:bg-[#5C1720] text-white font-black text-sm uppercase tracking-widest py-4 rounded-sm transition-all duration-200 shadow-md hover:shadow-lg cursor-pointer flex items-center justify-center gap-2"
-                >
-                  VER DESGLOSE
-                </button>
-
-                <!-- Botón secundario para volver a calcular -->
-                <button 
-                  type="button"
-                  id="btn-nueva-consulta"
-                  onclick="window.app.setView('form')" 
-                  class="w-full border border-[#7A1F2B] text-[#7A1F2B] hover:bg-[#FFF8F8] font-bold text-sm py-3.5 rounded-sm transition-colors duration-200 cursor-pointer"
-                >
-                  Nueva consulta
-                </button>
-              </div>
-            </div>
-          </div>
-        `;
-      }
-    }
-
-    /**
-     * Estado 4: Desglose Analítico Oficial (CU03 de PN1)
-     */
-    class DesgloseState extends VistaState {
-      render(ctrl) {
-        const be = ctrl.state.calculadoraBE;
-        if (!be) return '';
-
-        const desgloseItems = be.obtenerDesglose();
-
-        return `
-          <div class="min-h-screen bg-[#F4F6F8] print:bg-white print:min-h-0">
-            <!-- Header con paleta oficial (Oculto en Impresión) -->
-            <header class="bg-[#7A1F2B] px-6 py-4 flex items-center justify-between shadow-sm print:hidden">
-              <div class="flex items-center gap-2.5 cursor-pointer" onclick="window.app.setView('hero')">
-                <img src="icon.png" alt="IMPORTA+ NEXA" class="w-7 h-7 rounded-sm object-cover shadow-sm border border-white/20" onerror="this.style.display='none'">
-                <span class="text-white font-bold tracking-tight text-lg">IMPORTA<span class="text-white/50">+</span> <span class="text-xs tracking-widest font-normal text-white/50 ml-0.5">NEXA</span></span>
-              </div>
-              <div class="flex items-center gap-3">
-                <button onclick="window.print()" class="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-sm transition-colors border border-white/20 cursor-pointer">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                  </svg>
-                  Imprimir Desglose
-                </button>
-                <button onclick="window.app.setView('results')" class="text-white/80 text-xs font-semibold hover:text-white transition-colors cursor-pointer">
-                  ← Volver a resultados
-                </button>
-              </div>
-            </header>
-
-            <div class="max-w-3xl mx-auto px-4 py-8 md:py-10 print:py-0 print:px-0 print:max-w-full">
-              <!-- Encabezado oficial exclusivo para impresión / PDF -->
-              <div class="hidden print:block mb-6 border-b-2 border-[#7A1F2B] pb-4">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <h1 class="text-2xl font-black text-[#7A1F2B] tracking-tight">IMPORTA<span class="text-[#171717]">+</span></h1>
-                    <p class="text-xs text-[#555555] font-semibold mt-0.5">Comprobante y Desglose Analítico Oficial Aduanero (PN1)</p>
-                  </div>
-                  <div class="text-right text-xs text-[#555555]">
-                    <p class="font-bold text-[#171717]">ID: ${be.hashCotizacion}</p>
-                    <p>Emisión: ${new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Título y Acción de Impresión -->
-              <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
-                <div>
-                  <span class="text-xs font-bold uppercase tracking-widest text-[#7A1F2B]">Desglose Analítico Oficial (PN1)</span>
-                  <h2 class="text-2xl font-black text-[#171717] mt-1">${be.posicion?.descripcion || 'Tu importación'}</h2>
-                  <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#555555] mt-1.5 font-medium">
-                    <span>NCM: <strong class="font-mono text-[#171717]">${be.posicion?.codigoNcm}</strong></span>
-                    <span>Origen: <strong class="text-[#171717]">${be.pais?.nombre}</strong></span>
-                    <span>Condición: <strong class="text-[#171717]">${be.esInscriptoGanancias ? 'Responsable Inscripto' : 'Consumo Particular'}</strong></span>
-                    <span>ID: <strong class="font-mono text-[#7A1F2B]">${be.hashCotizacion}</strong></span>
-                  </div>
-                </div>
-                <button onclick="window.print()" class="print:hidden shrink-0 inline-flex items-center gap-2 bg-[#7A1F2B] hover:bg-[#5C1720] text-white px-4 py-2.5 rounded-sm text-xs font-bold uppercase tracking-wider shadow-sm transition-all cursor-pointer">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                  </svg>
-                  Imprimir Desglose
-                </button>
-              </div>
-
-              <!-- Tabla de Desglose Analítico Oficial -->
-              <div class="bg-white border border-[#D8DDE3] rounded-sm overflow-hidden mb-6 shadow-sm print:shadow-none print:border-gray-300">
-                <!-- 1. Valor FOB -->
-                <div class="flex items-center justify-between px-5 py-3.5 border-b border-[#F4F6F8]">
-                  <div>
-                    <p class="text-xs md:text-sm font-semibold text-[#171717]">1. Valor FOB Total Mercadería</p>
-                    <p class="text-xs text-[#777]">${be.cantidad} unidades × USD ${ctrl.formatNumber(be.precioFobUnitario)} en puerto de embarque</p>
-                  </div>
-                  <span class="text-xs md:text-sm font-bold tabular-nums text-[#171717]">USD ${ctrl.formatNumber(be.fobTotal)}</span>
-                </div>
-
-                <!-- 2. Flete Internacional -->
-                <div class="flex items-center justify-between px-5 py-3.5 border-b border-[#F4F6F8]">
-                  <div>
-                    <p class="text-xs md:text-sm font-semibold text-[#171717]">2. Flete Internacional</p>
-                    <p class="text-xs text-[#777]">${be.esEstimacionFlete ? 'Estimación paramétrica (' + be.pais.fleteEstimadoPct + '% s/ FOB)' : 'Flete declarado por el usuario'}</p>
-                  </div>
-                  <span class="text-xs md:text-sm font-bold tabular-nums text-[#171717]">USD ${ctrl.formatNumber(be.flete)}</span>
-                </div>
-
-                <!-- 3. Seguro de Transporte -->
-                <div class="flex items-center justify-between px-5 py-3.5 border-b border-[#F4F6F8]">
-                  <div>
-                    <p class="text-xs md:text-sm font-semibold text-[#171717]">3. Seguro de Transporte</p>
-                    <p class="text-xs text-[#777]">${be.esEstimacionSeguro ? 'Seguro legal supletorio (' + be.pais.seguroPctStd + '% s/ FOB)' : 'Seguro declarado por el usuario'}</p>
-                  </div>
-                  <span class="text-xs md:text-sm font-bold tabular-nums text-[#171717]">USD ${ctrl.formatNumber(be.seguro)}</span>
-                </div>
-
-                <!-- 4. Fila Destacada CIF -->
-                <div class="flex items-center justify-between px-5 py-4 border-b border-[#D8DDE3] bg-[#FFF8F8] print:bg-gray-100">
-                  <div>
-                    <p class="text-xs md:text-sm font-black text-[#7A1F2B]">VALOR BASE ADUANERO (CIF)</p>
-                    <p class="text-xs text-[#7A1F2B]/80 font-medium">Base Imponible de Derechos y Tasa de Estadística (FOB + Flete + Seguro)</p>
-                  </div>
-                  <span class="text-sm md:text-base font-black tabular-nums text-[#7A1F2B]">USD ${ctrl.formatNumber(be.cifAduanero)}</span>
-                </div>
-
-                <!-- 5. DIE -->
-                <div class="flex items-center justify-between px-5 py-3.5 border-b border-[#F4F6F8]">
-                  <div>
-                    <p class="text-xs md:text-sm font-semibold text-[#171717]">Derecho de Importación (DIE) (${be.alicuotaDie}%)</p>
-                    <p class="text-xs text-[#777]">${be.tratamientoArancelario}</p>
-                  </div>
-                  <span class="text-xs md:text-sm font-bold tabular-nums text-[#171717]">USD ${ctrl.formatNumber(be.montoDie)}</span>
-                </div>
-
-                <!-- 6. Tasa de Estadística -->
-                <div class="flex items-center justify-between px-5 py-3.5 border-b border-[#F4F6F8]">
-                  <div>
-                    <p class="text-xs md:text-sm font-semibold text-[#171717]">Tasa de Estadística Aduanera (${be.alicuotaEstadistica}%)</p>
-                    <p class="text-xs text-[#777]">${(be.pais?.esIntrazona || be.posicion?.esBienDeCapital) ? 'Exento Mercosur / Bien de Capital' : '3% s/ CIF con escala de topes Decreto 99/2019'}</p>
-                  </div>
-                  <span class="text-xs md:text-sm font-bold tabular-nums text-[#171717]">USD ${ctrl.formatNumber(be.montoEstadistica)}</span>
-                </div>
-
-                <!-- 7. Base Imponible Interior -->
-                <div class="flex items-center justify-between px-5 py-3 border-b border-[#D8DDE3] bg-gray-50">
-                  <div>
-                    <p class="text-xs font-bold text-[#555555] uppercase tracking-wider">Base Imponible Impuestos Interiores</p>
-                    <p class="text-[11px] text-[#777]">CIF + Derecho de Importación (DIE) + Tasa de Estadística</p>
-                  </div>
-                  <span class="text-xs font-bold tabular-nums text-[#555555]">USD ${ctrl.formatNumber(be.baseImponibleInterior)}</span>
-                </div>
-
-                <!-- 8. IVA Aduanero -->
-                <div class="flex items-center justify-between px-5 py-3.5 border-b border-[#F4F6F8]">
-                  <div>
-                    <p class="text-xs md:text-sm font-semibold text-[#171717]">IVA Aduanero DGA (${be.alicuotaIva}%)</p>
-                    <p class="text-xs text-[#777]">${(be.posicion.esBienDeCapital || be.posicion.esInformaticaTelecom) ? 'Alícuota reducida 10.5% Bienes de Capital / Informática' : 'Alícuota general 21% s/ Base Imponible Interior'}</p>
-                  </div>
-                  <span class="text-xs md:text-sm font-bold tabular-nums text-[#171717]">USD ${ctrl.formatNumber(be.montoIva)}</span>
-                </div>
-
-                <!-- 9. Percepción IVA -->
-                <div class="flex items-center justify-between px-5 py-3.5 border-b border-[#F4F6F8]">
-                  <div>
-                    <p class="text-xs md:text-sm font-semibold text-[#171717]">Percepción IVA Adicional (${be.alicuotaIvaAdicional}%)</p>
-                    <p class="text-xs text-[#777]">Régimen de percepción aduanera RG AFIP 2281</p>
-                  </div>
-                  <span class="text-xs md:text-sm font-bold tabular-nums text-[#171717]">USD ${ctrl.formatNumber(be.montoIvaAdicional)}</span>
-                </div>
-
-                <!-- 10. Percepción Ganancias -->
-                <div class="flex items-center justify-between px-5 py-3.5 border-b border-[#F4F6F8]">
-                  <div>
-                    <p class="text-xs md:text-sm font-semibold text-[#171717]">Percepción Impuesto a las Ganancias (${be.alicuotaGanancias}%)</p>
-                    <p class="text-xs text-[#777]">${be.esInscriptoGanancias ? '6% Responsable Inscripto (RG AFIP 2281)' : '11% Consumo Particular / No Categorizado'}</p>
-                  </div>
-                  <span class="text-xs md:text-sm font-bold tabular-nums text-[#171717]">USD ${ctrl.formatNumber(be.montoGanancias)}</span>
-                </div>
-
-                <!-- 11. Arancel SIM -->
-                <div class="flex items-center justify-between px-5 py-3.5 border-b border-[#D8DDE3]">
-                  <div>
-                    <p class="text-xs md:text-sm font-semibold text-[#171717]">Arancel SIM + Digitalización</p>
-                    <p class="text-xs text-[#777]">Cargo fijo Sistema Informático Malvina (USD 28) + Digitalización (USD 10)</p>
-                  </div>
-                  <span class="text-xs md:text-sm font-bold tabular-nums text-[#171717]">USD ${ctrl.formatNumber(be.totalSimDigitalizacion)}</span>
-                </div>
-
-                <!-- Fila Total Nacionalizado -->
-                <div class="flex items-center justify-between px-5 py-5 bg-[#7A1F2B] text-white">
-                  <div>
-                    <p class="text-white/80 text-xs uppercase tracking-wider font-bold">Costo Total Nacionalizado (CIF + Gravámenes)</p>
-                    <p class="text-xs text-white/70 mt-0.5">≈ $ ${ctrl.formatNumber(be.costoTotalARS)} ARS (TC BNA $${be.cotizacionBna})</p>
-                  </div>
-                  <span class="text-xl md:text-2xl font-black text-white tabular-nums">USD ${ctrl.formatNumber(be.costoTotalNacionalizado)}</span>
-                </div>
-              </div>
-
-              <!-- Caja de Fórmulas Normativas Aplicadas (CU03) -->
-              <div class="bg-white border border-[#D8DDE3] rounded-sm p-4 mb-6 shadow-sm">
-                <p class="text-xs font-bold uppercase tracking-widest text-[#7A1F2B] mb-2">Fórmulas Normativas Aplicadas (Ley 22.415 / Dec. 99/2019 / RG 2281)</p>
-                <div class="font-mono text-xs text-[#333] space-y-1 bg-gray-50 p-3 rounded border border-gray-100">
-                  <p>1) <strong>FOB Total:</strong> Cantidad (${be.cantidad}) × USD ${ctrl.formatNumber(be.precioFobUnitario)} = <strong>USD ${ctrl.formatNumber(be.fobTotal)}</strong></p>
-                  <p>2) <strong>Valor CIF:</strong> FOB (USD ${ctrl.formatNumber(be.fobTotal)}) + Flete (USD ${ctrl.formatNumber(be.flete)}) + Seguro (USD ${ctrl.formatNumber(be.seguro)}) = <strong>USD ${ctrl.formatNumber(be.cifAduanero)}</strong></p>
-                  <p>3) <strong>DIE:</strong> CIF (USD ${ctrl.formatNumber(be.cifAduanero)}) × ${be.alicuotaDie}% = <strong>USD ${ctrl.formatNumber(be.montoDie)}</strong></p>
-                  <p>4) <strong>Tasa Estadística:</strong> CIF × ${be.alicuotaEstadistica}% (sujeto a tope Dec. 99/2019) = <strong>USD ${ctrl.formatNumber(be.montoEstadistica)}</strong></p>
-                  <p>5) <strong>Base Interior:</strong> CIF + DIE + Estadística = <strong>USD ${ctrl.formatNumber(be.baseImponibleInterior)}</strong></p>
-                  <p>6) <strong>Impuestos Interiores:</strong> IVA ${be.alicuotaIva}% (USD ${ctrl.formatNumber(be.montoIva)}) + Percep. IVA ${be.alicuotaIvaAdicional}% (USD ${ctrl.formatNumber(be.montoIvaAdicional)}) + Ganancias ${be.alicuotaGanancias}% (USD ${ctrl.formatNumber(be.montoGanancias)})</p>
-                  <p>7) <strong>Costo Total Nacionalizado:</strong> CIF + Gravámenes DGA + SIM = <strong>USD ${ctrl.formatNumber(be.costoTotalNacionalizado)}</strong></p>
-                </div>
-              </div>
-
-              <!-- Botones de Acción (PN1 Exclusivo) -->
-              <div class="print:hidden space-y-3">
-                <button 
-                  type="button"
-                  onclick="window.print()" 
-                  class="w-full bg-[#7A1F2B] hover:bg-[#5C1720] text-white font-black text-sm uppercase tracking-widest py-3.5 rounded-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                  </svg>
-                  Imprimir Desglose Oficial
-                </button>
-                <button 
-                  type="button"
-                  id="btn-volver-resultados"
-                  onclick="window.app.setView('results')" 
-                  class="w-full border border-[#D8DDE3] bg-white text-[#555555] hover:border-[#7A1F2B] hover:text-[#7A1F2B] font-bold text-sm py-3.5 rounded-sm transition-colors duration-200 cursor-pointer text-center"
-                >
-                  ← Volver a resultados
-                </button>
-                <button 
-                  type="button"
-                  onclick="window.app.setView('form')" 
-                  class="w-full text-[#7A1F2B] hover:underline font-bold text-xs py-2 transition-colors cursor-pointer text-center"
-                >
-                  Nueva consulta
-                </button>
-              </div>
-
-              <!-- Pie de página para impresión oficial / PDF -->
-              <div class="hidden print:block mt-8 pt-4 border-t border-[#D8DDE3] text-[10px] text-[#777777] text-center">
-                <p class="font-bold text-[#171717]">IMPORTA+ — Plataforma de Simulación y Análisis de Costos de Importación</p>
-                <p class="mt-0.5">Cálculos aduaneros y tributarios según Código Aduanero (Ley 22.415), Decreto 99/2019, Ley 20.631 y RG AFIP 2281.</p>
-              </div>
-            </div>
-          </div>
-        `;
-      }
-    }
-
-    /*************************************************************************
-     * 5. CONTROLADOR PRINCIPAL: SimuladorController (Context del Patrón STATE)
-     *************************************************************************/
-    class SimuladorController {
-      constructor() {
-        this.paisBLL = new PaisBLL();
-        this.posicionBLL = new PosicionArancelariaBLL();
-        this.calculadoraBLL = new CalculadoraArancelariaBLL();
-
-        // Estados registrados (Exclusivamente PN1)
-        this.states = {
-          hero: new HeroState(),
-          form: new FormularioState(),
-          results: new ResultadosState(),
-          breakdown: new DesgloseState()
-        };
-        this.currentState = this.states['hero'];
-
-        this.state = {
-          view: 'hero',
-          form: {
-            producto: '',
-            paisOrigen: 'China',
-            cantidad: '100',
-            precioUnidad: '50.00',
-            flete: '240',
-            seguro: '10',
-            condicionGanancias: 'inscripto'
-          },
-          posicionSeleccionada: null,
-          aplicarExcepcion: true,
-          paisesCatalogo: [],
-          calculadoraBE: null
-        };
-      }
-
-      async inicializar() {
-        try {
-          this.state.paisesCatalogo = await this.paisBLL.obtenerPaises();
-          const catalogo = await this.posicionBLL.obtenerTodas();
-          if (catalogo && catalogo.length > 0) {
-            // Posición por defecto: Notebooks 8471.30.12 o la primera
-            const inicial = await this.posicionBLL.obtenerPorCodigo('8471.30.12') || catalogo[0];
-            if (inicial) {
-              this.state.posicionSeleccionada = inicial;
-              this.state.form.producto = `${inicial.codigoNcm} — ${inicial.descripcion}`;
-            }
-          }
-        } catch (e) {
-          console.warn('Error inicializando catálogos:', e);
-        }
-        this.render();
-      }
-
-      setView(newView) {
-        this.state.view = newView;
-        this.currentState = this.states[newView] || this.states['hero'];
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        this.render();
-        if (this.currentState.onEnter) {
-          this.currentState.onEnter(this);
-        }
-      }
-
-      render() {
-        const app = document.getElementById('app');
-        if (!app || !this.currentState) return;
-        app.innerHTML = this.currentState.render(this);
-        if (this.currentState.bindEvents) {
-          this.currentState.bindEvents(this);
-        }
-      }
-
-      formatNumber(num) {
-        const val = parseFloat(num) || 0;
-        return val.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      }
-
-      seleccionarNCM(idx) {
-        if (window._ncmCache && window._ncmCache[idx]) {
-          this.state.posicionSeleccionada = window._ncmCache[idx];
-          this.state.form.producto = `${this.state.posicionSeleccionada.codigoNcm} — ${this.state.posicionSeleccionada.descripcion}`;
-          const dropdown = document.getElementById('ncm-dropdown');
-          if (dropdown) dropdown.classList.add('hidden');
-          this.render();
-        }
-      }
-
-      actualizarSubtotalEnVivo() {
-        const cant = parseInt(this.state.form.cantidad) || 0;
-        const precio = parseFloat(this.state.form.precioUnidad) || 0;
-        const subtotal = cant * precio;
-        const subtotalEl = document.querySelector('.tabular-nums');
-        if (subtotalEl) {
-          subtotalEl.textContent = 'USD ' + this.formatNumber(subtotal);
-        }
-      }
-
-      estimarLogistica() {
-        const cant = parseInt(this.state.form.cantidad) || 1;
-        const precio = parseFloat(this.state.form.precioUnidad) || 0;
-        const fob = cant * precio;
-        const pais = this.state.paisesCatalogo.find(p => p.nombre.toLowerCase().includes(this.state.form.paisOrigen.toLowerCase())) || this.state.paisesCatalogo[0];
-        const est = this.paisBLL.estimarFleteYSeguro(fob, pais);
-        this.state.form.flete = est.flete.toString();
-        this.state.form.seguro = est.seguro.toString();
-        this.render();
-      }
-
-      async ejecutarLiquidacion() {
-        try {
-          if (!this.state.posicionSeleccionada) {
-            alert('Por favor seleccione una posición arancelaria NCM.');
-            return;
-          }
-          const f = this.state.form;
-          const pais = this.state.paisesCatalogo.find(p => p.nombre.toLowerCase().includes(f.paisOrigen.toLowerCase())) || this.state.paisesCatalogo[0];
-
-          const be = new CalculadoraArancelariaBE({
-            posicion: this.state.posicionSeleccionada,
-            cantidad: parseInt(f.cantidad) || 1,
-            precioFobUnitario: parseFloat(f.precioUnidad) || 0,
-            pais: pais,
-            flete: parseFloat(f.flete) || 0,
-            seguro: parseFloat(f.seguro) || 0,
-            esInscriptoGanancias: f.condicionGanancias === 'inscripto',
-            aplicarExcepcion: this.state.aplicarExcepcion
-          });
-
-          this.state.calculadoraBE = await this.calculadoraBLL.liquidar(be);
-          this.setView('results');
-        } catch (err) {
-          alert('Error al calcular liquidación: ' + err.message);
-        }
-      }
-    }
-
-    // Inicialización al cargar el DOM
-    document.addEventListener('DOMContentLoaded', () => {
-      window.app = new SimuladorController();
-      window.app.inicializar();
     });
   </script>
 </body>
+
 </html>

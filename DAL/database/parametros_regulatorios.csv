@@ -1,0 +1,16 @@
+﻿parametro;valor;descripcion
+TasaEstadisticaPct;3.0;Alícuota general Tasa de Estadística Aduanera (%)
+TasaEstadisticaTope10k;180.0;Tope máximo en USD para CIF < 10.000
+TasaEstadisticaTope100k;3000.0;Tope máximo en USD para CIF entre 10.000 y 100.000
+TasaEstadisticaTope1M;30000.0;Tope máximo en USD para CIF entre 100.000 y 1.000.000
+TasaEstadisticaTopeMax;150000.0;Tope máximo en USD para CIF >= 1.000.000
+IvaGeneralPct;21.0;Alícuota IVA General DGA (%)
+IvaReducidoBKPct;10.5;Alícuota IVA Reducido Bienes de Capital / Informática (%)
+PercepcionIvaGeneralPct;20.0;Percepción IVA Adicional General (%)
+PercepcionIvaReducidoPct;10.0;Percepción IVA Adicional Reducida (%)
+PercepcionGananciasGeneralPct;6.0;Percepción Ganancias Responsable Inscripto / Reventa (%)
+PercepcionGananciasNoCatPct;11.0;Percepción Ganancias Consumo Particular / No categorizado (%)
+ArancelSimFijoUSD;28.0;Arancel fijo Sistema Informático Malvina (USD)
+DigitalizacionFijaUSD;10.0;Tasa fija de Digitalización Documental (USD)
+TotalSimDigitalizacionUSD;38.0;Total cargos fijos operativos SIM + Digitalización (USD)
+CotizacionOficialBNA_USD_ARS;1420.5;Tipo de cambio oficial vendedor Banco de la Nación Argentina (ARS/USD)
