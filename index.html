@@ -130,9 +130,19 @@
     }
 
     @media print {
+      @page {
+        margin: 0 !important;
+        size: auto;
+      }
+
+      html,
       body {
         background-color: #ffffff !important;
         color: #171717 !important;
+        margin: 0 !important;
+        padding: 1.2cm !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
 
       .print\:hidden {
@@ -141,11 +151,6 @@
 
       .print\:block {
         display: block !important;
-      }
-
-      @page {
-        margin: 1.2cm;
-        size: auto;
       }
     }
   </style>
@@ -169,6 +174,7 @@
   <script src="BE/CalculadoraArancelariaBE.js"></script>
 
   <!-- 2. CAPA DAL (Data Access Layer - Excel Persistence Engine & Repositorios) -->
+  <script src="datos_excels.js"></script>
   <script src="DAL/database/ExcelDatabaseEmbedded.js"></script>
   <script src="DAL/ExcelDataLoaderDAL.js"></script>
   <script src="DAL/PaisDAL.js"></script>
@@ -189,6 +195,13 @@
 
   <!-- Inicialización -->
   <script>
+    window.addEventListener('beforeprint', function () {
+      document.title = ' ';
+    });
+    window.addEventListener('afterprint', function () {
+      document.title = 'IMPORTA +';
+    });
+
     document.addEventListener('DOMContentLoaded', function () {
       if (window.SimuladorController) {
         window.app = new window.SimuladorController();

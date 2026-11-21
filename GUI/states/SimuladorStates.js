@@ -28,7 +28,7 @@ function renderBrandBadge(sizeClass = 'h-6 md:h-7') {
 
 /**
  * Estado 1: Portada Principal / Hero
- * - Logo principal central: IMPORTA+AMERI.jpeg
+ * - Logo principal central: logo-importa.png (Limpio, sin mapa/Ameri)
  * - Subtítulo: "Simulador oficial de costos aduaneros y tributos ARCA / DGA"
  * - Sin pie de página ("Comercio Exterior · Argentina · Calculadora Oficial PN1" eliminado)
  */
@@ -43,13 +43,12 @@ class HeroState extends VistaState {
         </header>
 
         <div class="flex-1 flex flex-col items-center justify-center text-center px-4 w-full min-h-0 py-1">
-          <!-- Logo principal central / Fondo de pantalla IMPORTA+AMERI.png -->
-          <div class="w-full max-h-[30vh] md:max-h-[36vh] flex items-center justify-center overflow-hidden mb-2">
+          <!-- Logo principal central IMPORTA+ (limpio, sin mapa) -->
+          <div class="w-full flex items-center justify-center mb-6">
             <img 
-              src="IMPORTA+AMERI.png" 
+              src="logo-importa.png" 
               alt="IMPORTA+" 
-              class="w-full h-auto max-h-[26vh] md:max-h-[34vh] object-contain mx-auto block select-none" 
-              style="mask-image: linear-gradient(to bottom, black 90%, transparent 100%); -webkit-mask-image: linear-gradient(to bottom, black 90%, transparent 100%);"
+              class="w-auto h-16 sm:h-20 md:h-24 max-w-[85vw] object-contain mx-auto block select-none" 
             />
           </div>
 
@@ -98,7 +97,7 @@ class FormularioState extends VistaState {
         </header>
 
         <div class="max-w-2xl mx-auto px-4 py-10">
-          <h2 class="text-2xl md:text-3xl font-bold text-[#171717] mb-1">Liquidación Aduanera (PN1)</h2>
+          <h2 class="text-2xl md:text-3xl font-bold text-[#171717] mb-1">Liquidación Aduanera</h2>
           <p class="text-[#555555] text-sm mb-8">Completá los datos para calcular el costo oficial de nacionalización.</p>
 
           <div class="bg-white rounded-sm border border-[#D8DDE3] divide-y divide-[#F4F6F8] overflow-hidden mb-6 shadow-sm">
@@ -107,7 +106,6 @@ class FormularioState extends VistaState {
             <div class="px-6 py-5">
               <div class="flex items-center gap-2 mb-4">
                 <p class="text-xs font-bold uppercase tracking-widest text-[#530618]">Información general</p>
-                <span class="text-[10px] font-semibold bg-[#530618] text-white px-1.5 py-0.5 rounded-sm uppercase tracking-wide">Obligatorio</span>
               </div>
 
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -126,8 +124,8 @@ class FormularioState extends VistaState {
                   />
                   <div id="ncm-dropdown" class="absolute left-0 right-0 top-full mt-1 bg-white border border-[#D8DDE3] rounded-sm shadow-xl z-50 max-h-60 overflow-y-auto hidden"></div>
 
-                  ${ctrl.state.posicionSeleccionada ? `
-                    <div class="mt-2.5 p-3 bg-[#FFF8F8] border border-[#F0D0D4] rounded-sm text-xs">
+                  <div id="ficha-producto-seleccionado" class="${ctrl.state.posicionSeleccionada ? '' : 'hidden'} mt-2.5 p-3 bg-[#FFF8F8] border border-[#F0D0D4] rounded-sm text-xs">
+                    ${ctrl.state.posicionSeleccionada ? `
                       <div class="flex justify-between items-center font-bold text-[#530618]">
                         <span>${ctrl.state.posicionSeleccionada.categoria || 'Producto Seleccionado'}</span>
                         <div class="flex items-center gap-2">
@@ -151,8 +149,8 @@ class FormularioState extends VistaState {
                           </div>
                         ` : ''}
                       </div>
-                    </div>
-                  ` : ''}
+                    ` : ''}
+                  </div>
                 </div>
 
                 <!-- País de Origen: Búsqueda Incremental con los 195 Países -->
@@ -291,41 +289,67 @@ class FormularioState extends VistaState {
     const inputSeguro = document.getElementById('input-seguro');
 
     // 1. Búsqueda incremental por Nombre de Producto (sin código NCM)
+    const ejecutarBusquedaProducto = async (texto) => {
+      if (!dropdownNcm) return;
+      const cleanVal = String(texto || '').replace(/[0-9]/g, ' ').trim();
+      if (cleanVal.length >= 2) {
+        const res = await ctrl.posicionBLL.buscarPosiciones(cleanVal, 10);
+        if (res && res.length > 0) {
+          dropdownNcm.innerHTML = res.map((p, idx) => `
+            <div class="p-3 border-b border-gray-100 hover:bg-[#FFF8F8] cursor-pointer text-xs" onmousedown="event.preventDefault(); window.app.seleccionarNCM(${idx})">
+              <div class="flex justify-between font-bold text-[#530618]">
+                <span>${p.categoria || 'Producto'}</span>
+                <span class="text-gray-500 font-normal">Arancel: ${p.poseeExcepcion ? p.arancelAplicableExcepcion : p.arancelExternoComun}%</span>
+              </div>
+              <div class="text-gray-700 mt-0.5 font-medium">${p.descripcion}</div>
+            </div>
+          `).join('');
+          dropdownNcm.classList.remove('hidden');
+          window._ncmCache = res;
+        } else {
+          dropdownNcm.innerHTML = `
+            <div class="p-3 text-xs text-gray-500">
+              No se encontraron productos con ese nombre. Probá con otro término (ej: Notebook, Remera, Calzado, Teléfono).
+            </div>
+          `;
+          dropdownNcm.classList.remove('hidden');
+        }
+      } else {
+        dropdownNcm.classList.add('hidden');
+      }
+    };
+
     if (inputProd) {
-      inputProd.addEventListener('input', async (e) => {
+      inputProd.addEventListener('input', (e) => {
         const val = e.target.value;
         ctrl.state.form.producto = val;
         ctrl.state.posicionSeleccionada = null;
-        const cleanVal = val.trim();
-        if (cleanVal.length >= 2) {
-          const res = await ctrl.posicionBLL.buscarPosiciones(cleanVal, 8);
-          if (res && res.length > 0) {
-            dropdownNcm.innerHTML = res.map((p, idx) => `
-              <div class="p-3 border-b border-gray-100 hover:bg-[#FFF8F8] cursor-pointer text-xs" onclick="window.app.seleccionarNCM(${idx})">
-                <div class="flex justify-between font-bold text-[#530618]">
-                  <span>${p.categoria || 'Producto'}</span>
-                  <span class="text-gray-500 font-normal">Arancel: ${p.poseeExcepcion ? p.arancelAplicableExcepcion : p.arancelExternoComun}%</span>
-                </div>
-                <div class="text-gray-700 mt-0.5 font-medium">${p.descripcion}</div>
-              </div>
-            `).join('');
-            dropdownNcm.classList.remove('hidden');
-            window._ncmCache = res;
-          } else {
-            dropdownNcm.classList.add('hidden');
-          }
-        } else {
-          dropdownNcm.classList.add('hidden');
+        const fichaEl = document.getElementById('ficha-producto-seleccionado');
+        if (fichaEl) fichaEl.classList.add('hidden');
+        ejecutarBusquedaProducto(val);
+      });
+      inputProd.addEventListener('focus', (e) => {
+        if (!ctrl.state.posicionSeleccionada && e.target.value.trim().length >= 2) {
+          ejecutarBusquedaProducto(e.target.value);
         }
+      });
+      inputProd.addEventListener('click', (e) => {
+        if (!ctrl.state.posicionSeleccionada && e.target.value.trim().length >= 2) {
+          ejecutarBusquedaProducto(e.target.value);
+        }
+      });
+      inputProd.addEventListener('blur', () => {
+        if (dropdownNcm) dropdownNcm.classList.add('hidden');
       });
     }
 
-    // 2. Búsqueda incremental de País de origen sobre los 195 países
+    // 2. Búsqueda incremental de País de origen sobre los 195 países (SOLO LETRAS, abre al click/focus y cierra al desenfocar)
     const actualizarSugerenciasPais = async (texto) => {
-      const res = await ctrl.paisBLL.buscarPaises(texto, 12);
+      if (!dropdownPais) return;
+      const res = await ctrl.paisBLL.buscarPaises(texto, 15);
       if (res && res.length > 0) {
         dropdownPais.innerHTML = res.map((p, idx) => `
-          <div class="p-2.5 border-b border-gray-100 hover:bg-[#FFF8F8] cursor-pointer text-xs flex justify-between items-center" onclick="window.app.seleccionarPais(${idx})">
+          <div class="p-2.5 border-b border-gray-100 hover:bg-[#FFF8F8] cursor-pointer text-xs flex justify-between items-center" onmousedown="event.preventDefault(); window.app.seleccionarPais(${idx})">
             <span class="font-semibold text-[#171717]">${p.nombre}</span>
             <span class="text-[10px] px-2 py-0.5 rounded-sm ${p.esIntrazona ? 'bg-emerald-50 text-emerald-700 font-bold' : 'bg-gray-100 text-gray-600'}">
               ${p.esIntrazona ? 'Mercosur · 0% DIE' : 'Extrazona'}
@@ -340,25 +364,36 @@ class FormularioState extends VistaState {
     };
 
     if (inputPais) {
+      inputPais.addEventListener('keydown', (e) => {
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        const teclasPermitidas = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', ' '];
+        if (teclasPermitidas.includes(e.key)) {
+          if (e.key === 'Escape' && dropdownPais) dropdownPais.classList.add('hidden');
+          return;
+        }
+        if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ]$/.test(e.key)) {
+          e.preventDefault();
+        }
+      });
       inputPais.addEventListener('input', (e) => {
-        ctrl.state.form.paisOrigen = e.target.value;
+        const soloLetras = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '');
+        if (e.target.value !== soloLetras) {
+          e.target.value = soloLetras;
+        }
+        ctrl.state.form.paisOrigen = soloLetras;
         ctrl.state.paisSeleccionado = null;
-        actualizarSugerenciasPais(e.target.value);
+        actualizarSugerenciasPais(soloLetras);
       });
       inputPais.addEventListener('focus', (e) => {
         actualizarSugerenciasPais(e.target.value);
       });
+      inputPais.addEventListener('click', (e) => {
+        actualizarSugerenciasPais(e.target.value);
+      });
+      inputPais.addEventListener('blur', () => {
+        if (dropdownPais) dropdownPais.classList.add('hidden');
+      });
     }
-
-    // Cerrar desplegables al hacer clic fuera
-    document.addEventListener('click', (ev) => {
-      if (dropdownNcm && inputProd && !inputProd.contains(ev.target) && !dropdownNcm.contains(ev.target)) {
-        dropdownNcm.classList.add('hidden');
-      }
-      if (dropdownPais && inputPais && !inputPais.contains(ev.target) && !dropdownPais.contains(ev.target)) {
-        dropdownPais.classList.add('hidden');
-      }
-    }, { once: true });
 
     // 3. Actualización en vivo de Cantidad y Precio sin perder foco del cursor
     const actualizarSubtotalEnVivo = () => {
@@ -433,7 +468,7 @@ class ResultadosState extends VistaState {
       { label: "Flete internacional", value: be.flete },
       { label: "Seguro de transporte", value: be.seguro },
       { label: `Arancel DIE (${be.alicuotaDie}%)`, value: be.montoDie },
-      { label: `Impuestos DGA (IVA ${be.alicuotaIva}% + Percep)`, value: (be.montoIva + be.montoIvaAdicional + be.montoGanancias) },
+      { label: "Impuestos DGA", value: (be.montoIva + be.montoIvaAdicional + be.montoGanancias) },
       { label: "Cargos SIM + Tasa Estadística", value: (be.montoEstadistica + be.totalSimDigitalizacion) }
     ];
 
@@ -450,7 +485,7 @@ class ResultadosState extends VistaState {
 
         <div class="max-w-2xl mx-auto px-4 py-10">
           <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-            <span class="text-xs font-bold uppercase tracking-widest text-[#530618]">Liquidación Aduanera (PN1)</span>
+            <span class="text-xs font-bold uppercase tracking-widest text-[#530618]">Liquidación Aduanera</span>
             <button
               type="button"
               id="btn-texto-descripcion-producto"
@@ -574,11 +609,10 @@ class DesgloseState extends VistaState {
             <div class="flex items-center justify-between">
               <div>
                 <h1 class="text-2xl font-black text-[#530618] tracking-tight">IMPORTA<span class="text-[#171717]">+</span></h1>
-                <p class="text-xs text-[#555555] font-semibold mt-0.5">Comprobante y Desglose Analítico Oficial Aduanero</p>
+                <p class="text-xs text-[#555555] font-semibold mt-0.5">Desglose Analítico Oficial Aduanero</p>
               </div>
               <div class="text-right text-xs text-[#555555]">
                 <p class="font-semibold text-[#171717]">Emisión: ${new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                <p>Simulador Oficial IMPORTA+</p>
               </div>
             </div>
           </div>
@@ -586,7 +620,7 @@ class DesgloseState extends VistaState {
           <!-- Título y Botón desplegable de Descripción del Producto -->
           <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
             <div>
-              <span class="text-xs font-bold uppercase tracking-widest text-[#530618]">Liquidación Aduanera (PN1) · Desglose Oficial</span>
+              <span class="text-xs font-bold uppercase tracking-widest text-[#530618]">Liquidación Aduanera · Desglose Oficial</span>
               <h2 class="text-2xl font-bold text-[#171717] mt-1">${be.posicion?.categoria || 'Mercadería Seleccionada'}</h2>
               <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#555555] mt-1.5 font-medium">
                 <span>Origen: <strong class="text-[#171717]">${be.pais?.nombre || 'Internacional'}</strong></span>
@@ -736,7 +770,7 @@ class ContactoState extends VistaState {
             </h2>
 
             <p class="text-[#555] text-sm mb-6 max-w-sm mx-auto leading-relaxed">
-              El módulo de conexión directa y cotización con despachantes de aduana y forwarders matriculados se encuentra actualmente en proceso de integración.
+              El módulo de conexión directa y cotización con despachantes de aduana y forwarders se encuentra actualmente en proceso de integración.
             </p>
 
             <button

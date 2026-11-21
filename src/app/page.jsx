@@ -80,26 +80,23 @@ export default function ImportaPlusApp() {
     cargarDirectorio();
   }, []);
 
-  // Filtrado incremental de países
+  // Filtrado incremental de países (exclusivamente por letras)
   const filtrarPaises = (texto) => {
-    if (paisSeleccionado) {
-      setSugerenciasPais([]);
-      return;
-    }
     const normalizar = (s) =>
       String(s || "")
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "");
 
-    const term = normalizar(texto.trim());
+    const limpio = String(texto || "").replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, "").trim();
+    const term = normalizar(limpio);
     if (!term) {
-      setSugerenciasPais(paisesCatalogo.slice(0, 12));
+      setSugerenciasPais(paisesCatalogo.slice(0, 15));
       return;
     }
 
-    const filtrados = paisesCatalogo.filter(
-      (p) => normalizar(p.nombre).includes(term) || normalizar(p.codigo_iso) === term
+    const filtrados = paisesCatalogo.filter((p) =>
+      normalizar(p.nombre).includes(term)
     );
     filtrados.sort((a, b) => {
       const aStarts = normalizar(a.nombre).startsWith(term);
@@ -108,7 +105,7 @@ export default function ImportaPlusApp() {
       if (!aStarts && bStarts) return 1;
       return normalizar(a.nombre).localeCompare(normalizar(b.nombre));
     });
-    setSugerenciasPais(filtrados.slice(0, 12));
+    setSugerenciasPais(filtrados.slice(0, 15));
   };
 
   // Ejecución de la simulación aduanera
@@ -251,7 +248,7 @@ export default function ImportaPlusApp() {
                 Paso 1 de 2 · Parámetros Comerciales
               </span>
               <h2 className="text-xl font-bold text-slate-800">
-                Liquidación Aduanera (PN1)
+                Liquidación Aduanera
               </h2>
             </div>
           </div>
@@ -270,6 +267,7 @@ export default function ImportaPlusApp() {
                   setProductoSeleccionado(null);
                   setMostrarDescProducto(false);
                 }}
+                onBlur={() => setSugerenciasNcm([])}
                 placeholder="Escribí el nombre del producto (ej: Notebook, Remera, Router, Calzado)..."
                 className="w-full p-3.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#530618] focus:border-[#530618] outline-none text-slate-900 shadow-sm"
               />
@@ -286,7 +284,8 @@ export default function ImportaPlusApp() {
                   {sugerenciasNcm.map((item) => (
                     <li
                       key={item.codigo_ncm}
-                      onClick={() => {
+                      onMouseDown={(e) => {
+                        e.preventDefault();
                         setProductoSeleccionado(item);
                         setBusqueda(item.descripcion);
                         setSugerenciasNcm([]);
@@ -352,21 +351,36 @@ export default function ImportaPlusApp() {
                 <input
                   type="text"
                   value={busquedaPais}
+                  onKeyDown={(e) => {
+                    if (e.ctrlKey || e.metaKey || e.altKey) return;
+                    const permitidas = ["Backspace", "Delete", "Tab", "Escape", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", " "];
+                    if (permitidas.includes(e.key)) {
+                      if (e.key === "Escape") setSugerenciasPais([]);
+                      return;
+                    }
+                    if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ]$/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
                   onChange={(e) => {
-                    setBusquedaPais(e.target.value);
+                    const soloLetras = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, "");
+                    setBusquedaPais(soloLetras);
                     setPaisSeleccionado(null);
-                    filtrarPaises(e.target.value);
+                    filtrarPaises(soloLetras);
                   }}
                   onFocus={(e) => filtrarPaises(e.target.value)}
+                  onClick={(e) => filtrarPaises(e.target.value)}
+                  onBlur={() => setSugerenciasPais([])}
                   placeholder="Buscar país de origen..."
                   className="w-full p-2.5 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-[#530618]"
                 />
-                {sugerenciasPais.length > 0 && !paisSeleccionado && (
+                {sugerenciasPais.length > 0 && (
                   <ul className="absolute z-20 w-full bg-white border border-slate-300 rounded-lg mt-1 shadow-xl max-h-60 overflow-y-auto divide-y divide-slate-100">
                     {sugerenciasPais.map((p) => (
                       <li
                         key={p.codigo_iso}
-                        onClick={() => {
+                        onMouseDown={(e) => {
+                          e.preventDefault();
                           setPaisSeleccionado(p);
                           setBusquedaPais(p.nombre);
                           setSugerenciasPais([]);
@@ -517,7 +531,7 @@ export default function ImportaPlusApp() {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold uppercase tracking-widest text-[#530618]">
-                    Liquidación Aduanera (PN1)
+                    Liquidación Aduanera
                   </span>
                   <span className="text-xs font-mono font-bold bg-slate-900 text-white px-2.5 py-1 rounded">
                     ID: {resultado.idCotizacion}
@@ -769,7 +783,7 @@ export default function ImportaPlusApp() {
               </h3>
 
               <p className="text-xs text-slate-500 mb-6 leading-relaxed">
-                El módulo de conexión y cotización con despachantes y forwarders matriculados se encuentra en proceso de desarrollo e integración.
+                El módulo de conexión directa y cotización con despachantes de aduana y forwarders se encuentra actualmente en proceso de integración.
               </p>
 
               <button

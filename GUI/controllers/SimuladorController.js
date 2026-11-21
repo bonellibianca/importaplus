@@ -133,7 +133,10 @@ class SimuladorController {
       const dropdown = document.getElementById('pais-dropdown');
       if (dropdown) dropdown.classList.add('hidden');
       const inputPais = document.getElementById('input-pais');
-      if (inputPais) inputPais.value = this.state.paisSeleccionado.nombre;
+      if (inputPais) {
+        inputPais.value = this.state.paisSeleccionado.nombre;
+        inputPais.blur();
+      }
     }
   }
 
@@ -271,10 +274,29 @@ class SimuladorController {
     });
     this.state.mapInstance = map;
 
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    // Capa de Google Maps (100% gratuita, sin bloqueo 403 en file:/// ni HTTP) con respaldo CartoDB
+    const googleLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}', {
+      subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+      attribution: '&copy; Google Maps',
+      maxZoom: 20
+    });
+
+    const cartoFallbackLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      subdomains: 'abcd',
+      attribution: '&copy; CARTO &copy; OpenStreetMap',
       maxZoom: 19
-    }).addTo(map);
+    });
+
+    let fallbackActivated = false;
+    googleLayer.on('tileerror', () => {
+      if (!fallbackActivated) {
+        fallbackActivated = true;
+        if (map.hasLayer(googleLayer)) map.removeLayer(googleLayer);
+        cartoFallbackLayer.addTo(map);
+      }
+    });
+
+    googleLayer.addTo(map);
 
     setTimeout(() => {
       try {
@@ -350,8 +372,9 @@ class SimuladorController {
           <p style="margin: 0 0 6px 0; font-size: 11px; color: #64748B; line-height: 1.35;">
             ${p.descripcion || p.desc}
           </p>
-          <div style="font-size: 10px; color: #334155; border-top: 1px solid #E2E8F0; padding-top: 6px;">
-            <b>Operador:</b> ${p.operador || 'ARCA - DGA'}
+          <div style="font-size: 10px; color: #334155; border-top: 1px solid #E2E8F0; padding-top: 6px; display: flex; justify-content: space-between; align-items: center;">
+            <span><b>Operador:</b> ${p.operador || 'ARCA - DGA'}</span>
+            <a href="https://www.google.com/maps/search/?api=1&query=${lat},${lng}" target="_blank" rel="noopener noreferrer" style="color: #530618; font-weight: 700; text-decoration: none;">Google Maps ↗</a>
           </div>
         </div>
       `;

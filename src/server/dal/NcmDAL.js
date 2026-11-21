@@ -3,52 +3,86 @@ import { cargarCatalogoNcmExcel } from './excelClient';
 import { PosicionArancelariaBE } from '../be/PosicionArancelariaBE';
 
 /**
+ * Normaliza texto para búsqueda: minúsculas, sin tildes ni signos.
+ */
+function normalizarTexto(str) {
+  return String(str || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
  * Capa DAL: Acceso a Datos de Posiciones Arancelarias NCM mediante Excel
  * Lee directamente del catálogo Excel (Cliente/Nomenclatura_NCM_aranceles.xlsx
  * y DAL/database/ImportaPlus_ExcelDB.xlsx) cumpliendo con respuesta < 250ms.
  */
 export class NcmDAL {
   /**
-   * Búsqueda predictiva incremental por descripción, nombre coloquial o código NCM
-   * @param {string} query - Término de búsqueda (ej: "computadora", "remera", "notebook")
+   * Búsqueda predictiva incremental EXCLUSIVAMENTE por nombre / descripción del producto (no por código NCM)
+   * @param {string} query - Término de búsqueda por nombre (ej: "computadora", "remera", "notebook")
    * @param {number} limit - Límite de resultados (máximo 12 para evitar sobrecarga)
    * @returns {Promise<PosicionArancelariaBE[]>}
    */
   static async buscarPorDescripcion(query, limit = 12) {
-    const cleanQuery = (query || '').trim().toLowerCase();
-    if (!cleanQuery) return [];
+    const queryNorm = normalizarTexto(query);
+    if (!queryNorm || queryNorm.length < 2) return [];
 
-    const cleanDigits = cleanQuery.replace(/[.\s-]/g, '');
+    const tokens = queryNorm.split(/\s+/).filter((t) => t.length >= 2);
+    if (tokens.length === 0) return [];
+
     const catalogo = cargarCatalogoNcmExcel();
+    const scoredMatches = [];
 
-    const matches = [];
     for (const item of catalogo) {
-      const descLower = (item.descripcion || '').toLowerCase();
-      const catLower = (item.categoria || '').toLowerCase();
-      const codeClean = (item.codigo_ncm || '').replace(/[.\s-]/g, '');
+      const descRaw = item.descripcion || '';
+      const catRaw = item.categoria || '';
+      const descNorm = normalizarTexto(descRaw);
+      const catNorm = normalizarTexto(catRaw);
+      const fullNorm = `${descNorm} ${catNorm}`;
 
-      if (
-        descLower.includes(cleanQuery) ||
-        catLower.includes(cleanQuery) ||
-        item.codigo_ncm.includes(cleanQuery) ||
-        (cleanDigits.length >= 2 && codeClean.includes(cleanDigits))
-      ) {
-        matches.push(item);
+      // Verificar que todos los términos buscados aparezcan en el nombre/descripción/categoría
+      let matchesAll = true;
+      for (const tok of tokens) {
+        if (!fullNorm.includes(tok)) {
+          matchesAll = false;
+          break;
+        }
       }
+      if (!matchesAll) continue;
+
+      // Extraer el segmento específico final si la descripción tiene jerarquía '>'
+      const partes = descRaw.split('>').map((s) => s.trim()).filter(Boolean);
+      const ultimoSeg = partes.length > 0 ? partes[partes.length - 1] : descRaw;
+      const espNorm = normalizarTexto(ultimoSeg);
+      const esLosDemas = /^(los demas|las demas)$/.test(espNorm);
+
+      let score = 0;
+      if (item.esDestacado) score += 600;
+      if (espNorm.startsWith(queryNorm)) score += 500;
+      else if (espNorm.includes(` ${queryNorm}`)) score += 380;
+      else if (espNorm.includes(queryNorm)) score += 250;
+
+      for (const tok of tokens) {
+        if (espNorm.startsWith(tok) || espNorm.includes(` ${tok}`)) score += 180;
+        else if (espNorm.includes(tok)) score += 90;
+        if (catNorm.startsWith(tok) || catNorm.includes(` ${tok}`)) score += 80;
+      }
+
+      if (esLosDemas) score -= 120;
+
+      scoredMatches.push({ item, score });
     }
 
-    // Priorizar posiciones frecuentes curadas y coincidencias al inicio
-    matches.sort((a, b) => {
-      if (a.esDestacado && !b.esDestacado) return -1;
-      if (!a.esDestacado && b.esDestacado) return 1;
-      const aStarts = a.descripcion.toLowerCase().startsWith(cleanQuery);
-      const bStarts = b.descripcion.toLowerCase().startsWith(cleanQuery);
-      if (aStarts && !bStarts) return -1;
-      if (!aStarts && bStarts) return 1;
-      return 0;
+    scoredMatches.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return (a.item.descripcion || '').length - (b.item.descripcion || '').length;
     });
 
-    return matches.slice(0, limit).map((item) => new PosicionArancelariaBE(item));
+    return scoredMatches.slice(0, limit).map(({ item }) => new PosicionArancelariaBE(item));
   }
 
   /**

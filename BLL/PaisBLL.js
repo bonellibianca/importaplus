@@ -20,13 +20,14 @@ class PaisBLL {
   }
 
   /**
-   * Búsqueda incremental predictiva de países por nombre o código ISO
+   * Búsqueda incremental predictiva de países exclusivamente por letras (nombre)
    * @param {string} texto
    * @param {number} limite
    */
   async buscarPaises(texto, limite = 12) {
     const todos = await this.obtenerPaises();
-    if (!texto || !texto.trim()) {
+    const limpio = String(texto || '').replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '').trim();
+    if (!limpio) {
       return todos.slice(0, limite);
     }
 
@@ -36,12 +37,11 @@ class PaisBLL {
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '');
 
-    const term = normalizar(texto.trim());
+    const term = normalizar(limpio);
 
     const filtrados = todos.filter((p) => {
       const nom = normalizar(p.nombre);
-      const cod = normalizar(p.codigo);
-      return nom.includes(term) || cod === term;
+      return nom.includes(term);
     });
 
     filtrados.sort((a, b) => {
