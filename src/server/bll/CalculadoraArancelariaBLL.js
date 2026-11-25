@@ -10,14 +10,18 @@ import {
   LiquidacionExcepcionArancelariaBLL
 } from './templates/CalculadorAduaneroTemplate';
 
+export class DomainValidationError extends Error {
+  constructor(message, statusCode = 422) {
+    super(message);
+    this.name = 'DomainValidationError';
+    this.statusCode = statusCode;
+  }
+}
+
 /**
- * Capa BLL: Orquestador Central del Motor de Liquidación Aduanera
- * Protege la propiedad intelectual de las fórmulas de Bianca Bonelli (Backend-Only)
+ * Capa BLL: Orquestador Central del Motor de Liquidación Aduanera (Backend-Only)
  */
 export class CalculadoraArancelariaBLL {
-  /**
-   * Procesa la simulación comercial y aduanera completa (RF03 / PN1)
-   */
   static async procesarSimulacion(dto) {
     const {
       codigoNcm,
@@ -30,25 +34,25 @@ export class CalculadoraArancelariaBLL {
       usaExcepcion = true
     } = dto;
 
-    const tipoCambioBNA = dto.tipoCambioBNA && dto.tipoCambioBNA !== 1420.50
-      ? dto.tipoCambioBNA
-      : await obtenerCotizacionDolarOficial();
+    // En producción la cotización oficial siempre es gobernada por el servidor para evitar comprobantes adulterados
+    const tipoCambioBNA =
+      process.env.NODE_ENV !== 'production' && typeof dto.tipoCambioBNA === 'number' && dto.tipoCambioBNA >= 100
+        ? dto.tipoCambioBNA
+        : await obtenerCotizacionDolarOficial();
 
-    // 1. Obtener datos de dominio en paralelo desde la capa DAL
     const [ncm, pais] = await Promise.all([
       NcmDAL.obtenerPorCodigo(codigoNcm),
       PaisDAL.obtenerPorCodigoIso(codigoPais)
     ]);
 
     if (!ncm) {
-      throw new Error(`La posición arancelaria NCM '${codigoNcm}' no fue encontrada.`);
+      throw new DomainValidationError(`La posición arancelaria NCM '${codigoNcm}' no fue encontrada en el nomenclador oficial.`, 404);
     }
 
     if (!pais) {
-      throw new Error(`El país con código ISO '${codigoPais}' no es válido.`);
+      throw new DomainValidationError(`El país con código ISO '${codigoPais}' no es válido.`, 404);
     }
 
-    // 2. Selección de Estrategia Concreta del Patrón Template Method
     let calculador;
     if (pais.es_mercosur) {
       calculador = new LiquidacionIntrazonaBLL();
@@ -58,7 +62,6 @@ export class CalculadoraArancelariaBLL {
       calculador = new LiquidacionExtrazonaGeneralBLL();
     }
 
-    // 3. Ejecución del algoritmo reglamentario en cascada
     const resultado = calculador.liquidarOperacion({
       ncm,
       pais,
@@ -70,7 +73,6 @@ export class CalculadoraArancelariaBLL {
       tipoCambioBNA
     });
 
-    // Enriquecer la ficha del producto
     resultado.fichaProducto = {
       codigoNcm: ncm.codigo_ncm,
       descripcion: ncm.descripcion,
@@ -81,10 +83,8 @@ export class CalculadoraArancelariaBLL {
       condicionImportador
     };
 
-    // 4. Persistir comprobante inmutable con Hash ID en DAL (PN1 / PN2)
     await SimulacionDAL.guardar(resultado);
 
-    // 5. Obtener puertos y aduanas recomendados según el país de procedencia (PN3)
     const puertosSugeridos = await PuertoDAL.obtenerSugeridosPorPais(pais.codigo_iso);
     resultado.puertosRecomendados = puertosSugeridos;
 

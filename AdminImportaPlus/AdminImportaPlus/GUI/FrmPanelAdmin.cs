@@ -87,8 +87,31 @@ public partial class FrmPanelAdmin : Form
         };
         btnGuardarPto.Click += async (_, _) =>
         {
-            decimal.TryParse(txtPuertoLat.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var lat);
-            decimal.TryParse(txtPuertoLng.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var lng);
+            decimal? lat = null;
+            decimal? lng = null;
+
+            string rawLat = txtPuertoLat.Text.Trim().Replace(',', '.');
+            if (!string.IsNullOrEmpty(rawLat))
+            {
+                if (!decimal.TryParse(rawLat, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsedLat) || parsedLat < -90m || parsedLat > 90m)
+                {
+                    MessageBox.Show("Ingresá una latitud numérica válida entre -90 y 90 (ej: -34.5985).", "Validación de Coordenadas", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                lat = parsedLat;
+            }
+
+            string rawLng = txtPuertoLng.Text.Trim().Replace(',', '.');
+            if (!string.IsNullOrEmpty(rawLng))
+            {
+                if (!decimal.TryParse(rawLng, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsedLng) || parsedLng < -180m || parsedLng > 180m)
+                {
+                    MessageBox.Show("Ingresá una longitud numérica válida entre -180 y 180 (ej: -58.3731).", "Validación de Coordenadas", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                lng = parsedLng;
+            }
+
             var res = await _gestor.GuardarPuertoAsync(new PuertoAduanaBE
             {
                 Id = _puertoEditId,
@@ -98,8 +121,8 @@ public partial class FrmPanelAdmin : Form
                 CodigoSim = txtPuertoSim.Text,
                 Operador = txtPuertoOperador.Text,
                 Infraestructura = txtPuertoInfra.Text,
-                Latitud = lat == 0 ? null : lat,
-                Longitud = lng == 0 ? null : lng
+                Latitud = lat,
+                Longitud = lng
             });
             MessageBox.Show(res.Mensaje, "Puertos y Aduanas", MessageBoxButtons.OK, res.Ok ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
             if (res.Ok) await RecargarDatosUIAsync();
@@ -267,10 +290,25 @@ public partial class FrmPanelAdmin : Form
 
         Shown += async (_, _) =>
         {
+            AplicarPermisosUI();
             RecargarRolesUI();
             await RecargarDatosUIAsync();
         };
         MostrarSeccion(0);
+    }
+
+    private void AplicarPermisosUI()
+    {
+        btnGuardarFwd.Enabled = _gestor.UsuarioActualTienePermiso("FWD_ALTA") || _gestor.UsuarioActualTienePermiso("FWD_MODIFICAR");
+        btnEliminarFwd.Enabled = _gestor.UsuarioActualTienePermiso("FWD_BAJA");
+        btnGuardarPto.Enabled = _gestor.UsuarioActualTienePermiso("PTO_ABM");
+        btnBorrarPto.Enabled = _gestor.UsuarioActualTienePermiso("PTO_ABM");
+        btnNavRoles.Enabled = _gestor.UsuarioActualTienePermiso("ROLES_GESTION");
+        btnRecalcularDv.Enabled = _gestor.UsuarioActualTienePermiso("DV_RECALCULAR");
+        btnCrearBackup.Enabled = _gestor.UsuarioActualTienePermiso("BACKUP_CREAR");
+        btnEjecutarRestore.Enabled = _gestor.UsuarioActualTienePermiso("BACKUP_RESTAURAR");
+        btnGuardarSupa.Enabled = _gestor.UsuarioActualTienePermiso("SUPA_CONFIG");
+        btnEmpujarNube.Enabled = _gestor.UsuarioActualTienePermiso("SUPA_CONFIG");
     }
 
     private void MostrarSeccion(int indice)
@@ -482,10 +520,34 @@ public partial class FrmPanelAdmin : Form
                 using var img = Image.FromFile(urlOrData);
                 picForwarder.Image = new Bitmap(img);
             }
-            else if (urlOrData.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            else if (SeguridadYDigitoVerificadorBLL.EsUrlImagenSegura(urlOrData))
             {
-                byte[] bytes = await ImgHttp.GetByteArrayAsync(urlOrData);
-                using var ms = new MemoryStream(bytes);
+                const int maxBytes = 2 * 1024 * 1024; // 2 MB límite anti-DoS
+                using var resp = await ImgHttp.GetAsync(urlOrData, HttpCompletionOption.ResponseHeadersRead);
+                resp.EnsureSuccessStatusCode();
+                if (resp.Content.Headers.ContentLength.HasValue && resp.Content.Headers.ContentLength.Value > maxBytes)
+                {
+                    picForwarder.Image = null;
+                    return;
+                }
+
+                await using var netStream = await resp.Content.ReadAsStreamAsync();
+                using var ms = new MemoryStream();
+                byte[] buffer = new byte[8192];
+                int totalRead = 0;
+                int read;
+                while ((read = await netStream.ReadAsync(buffer)) > 0)
+                {
+                    totalRead += read;
+                    if (totalRead > maxBytes)
+                    {
+                        picForwarder.Image = null;
+                        return;
+                    }
+                    ms.Write(buffer, 0, read);
+                }
+
+                ms.Position = 0;
                 picForwarder.Image = new Bitmap(ms);
             }
         }

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://importaplus.com.ar/sitemap.xml

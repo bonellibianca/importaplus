@@ -27,12 +27,13 @@ public partial class FrmRestablecerPassword : Form
         {
             var res = await _gestor.RestablecerPasswordAdminAsync(
                 txtUsuario.Text,
+                txtPasswordActual.Text,
                 txtNuevaPassword.Text,
                 txtConfirmarPassword.Text);
 
             if (!res.Ok)
             {
-                MessageBox.Show(res.Mensaje, "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(res.Mensaje, "Validación de Seguridad", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 

@@ -53,20 +53,35 @@ class SupabaseClientDAL {
     ];
   }
 
+  static esUrlImagenSegura(rawUrl) {
+    if (!rawUrl || typeof rawUrl !== 'string') return false;
+    const trimmed = rawUrl.trim();
+    if (!trimmed || trimmed.length > 160000) return false;
+    if (trimmed.startsWith('https://')) return true;
+    if (trimmed.startsWith('/') && !trimmed.startsWith('//')) return true;
+    if (/^[a-zA-Z0-9._-]+\.(?:png|jpg|jpeg|svg|webp)$/i.test(trimmed)) return true;
+    if (/^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=]+$/i.test(trimmed)) return true;
+    return false;
+  }
+
   static normalizarLista(lista) {
     if (!Array.isArray(lista)) return [];
+    const defaults = this.getDefaultForwarders();
     return lista
       .filter((f) => f && f.activo !== false)
       .sort((a, b) => (Number(a.orden) || 1) - (Number(b.orden) || 1))
-      .map((f, idx) => ({
-        id: f.id || `fwd-${idx + 1}`,
-        nombre: String(f.nombre || 'Forwarder Internacional').trim().slice(0, 120),
-        imagen_url: String(f.imagen_url || '').trim(),
-        whatsapp: String(f.whatsapp || '').trim(),
-        email: String(f.email || '').trim(),
-        orden: Number(f.orden) || idx + 1,
-        activo: true
-      }));
+      .map((f, idx) => {
+        const rawImg = String(f.imagen_url || '').trim();
+        return {
+          id: f.id || `fwd-${idx + 1}`,
+          nombre: String(f.nombre || 'Forwarder Internacional').trim().slice(0, 120),
+          imagen_url: this.esUrlImagenSegura(rawImg) ? rawImg : defaults[idx % defaults.length].imagen_url,
+          whatsapp: String(f.whatsapp || '').trim(),
+          email: String(f.email || '').trim(),
+          orden: Number(f.orden) || idx + 1,
+          activo: true
+        };
+      });
   }
 
   static async obtenerForwardersGrilla() {

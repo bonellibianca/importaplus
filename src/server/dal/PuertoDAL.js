@@ -1,10 +1,12 @@
 import 'server-only';
+import fs from 'fs';
+import path from 'path';
 import { cargarPuertosExcel } from './excelClient';
 import { getCachedOrFetch, supabaseSelect, isSupabaseConfigured } from './supabaseClient';
 import { PuertoBE } from '../be/PuertoBE';
 
 /**
- * Capa DAL: Acceso a Puertos y Aduanas (Supabase con caché L1 15 min + Respaldo local)
+ * Capa DAL: Acceso a Puertos y Aduanas (Supabase con caché L1 15 min -> Espejo Admin web_sync.json -> Respaldo CSV/Semilla)
  */
 export class PuertoDAL {
   static async obtenerTodos() {
@@ -21,8 +23,31 @@ export class PuertoDAL {
       }
     }
 
-    const puertos = cargarPuertosExcel();
-    return puertos.map((p) => new PuertoBE(p));
+    const basePuertos = cargarPuertosExcel();
+    const syncPath = path.join(process.cwd(), 'DAL/database/web_sync.json');
+    if (fs.existsSync(syncPath)) {
+      try {
+        const raw = JSON.parse(fs.readFileSync(syncPath, 'utf8').replace(/^\uFEFF/, ''));
+        if (Array.isArray(raw.puertos) && raw.puertos.length > 0) {
+          const baseMap = new Map(basePuertos.map((p) => [String(p.id).toLowerCase(), p]));
+          return raw.puertos.map((sp) => {
+            const previo = baseMap.get(String(sp.id || '').toLowerCase()) || {};
+            return new PuertoBE({
+              ...previo,
+              ...sp,
+              tipos_carga: Array.isArray(sp.tipos_carga) && sp.tipos_carga.length > 0
+                ? sp.tipos_carga
+                : (previo.tipos_carga || ['GENERAL']),
+              paises_frecuentes: Array.isArray(sp.paises_frecuentes) && sp.paises_frecuentes.length > 0
+                ? sp.paises_frecuentes
+                : (previo.paises_frecuentes || [])
+            });
+          });
+        }
+      } catch {}
+    }
+
+    return basePuertos.map((p) => new PuertoBE(p));
   }
 
   static async obtenerSugeridosPorPais(codigoIso) {

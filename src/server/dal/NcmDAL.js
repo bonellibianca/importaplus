@@ -8,16 +8,14 @@ function normalizarTexto(str) {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z\s]/g, ' ')
+    .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
 /**
- * Capa DAL Híbrida para Posiciones NCM (Arquitectura Anti-Agotamiento de Cuota Supabase FREE)
- * - Unifica las posiciones editadas por el Admin en Supabase (cacheadas 10 min en RAM en 1 sola consulta)
- *   sobre el nomenclador estático completo de 10.437 posiciones.
- * - Resultado: 0 consultas SQL por tecla presionada en el buscador predictivo (< 15ms de respuesta).
+ * Capa DAL Híbrida para Posiciones NCM
+ * Soporta búsqueda por descripción alfanumérica (ej: "4G", "USB", "Notebook") y por código NCM (ej: "8471.30").
  */
 export class NcmDAL {
   static async _obtenerCatalogoUnificado() {
@@ -49,13 +47,16 @@ export class NcmDAL {
     const map = new Map(baseCatalogo.map((item) => [item.codigo_ncm, item]));
     for (const r of supaRows) {
       if (!r.codigo_ncm) continue;
+      const tipoBien = (r.tipo_bien || 'GENERAL').toUpperCase();
       map.set(r.codigo_ncm.trim(), {
         codigo_ncm: r.codigo_ncm.trim(),
         descripcion: r.descripcion || '',
         categoria: 'Catálogo Oficial Supabase',
-        tipo_bien: r.tipo_bien || 'GENERAL',
+        tipo_bien: tipoBien,
         aec: Number(r.aec) || 0,
-        iva_alicuota: Number(r.iva_alicuota) || (r.tipo_bien === 'BK' ? 10.5 : 21.0),
+        iva_alicuota: Number(r.iva_alicuota) > 0
+          ? Number(r.iva_alicuota)
+          : (tipoBien === 'BK' || tipoBien === 'BIT' ? 10.5 : 21.0),
         anexo_excepcion: r.anexo_excepcion || null,
         arancel_excepcion: r.arancel_excepcion !== null && r.arancel_excepcion !== undefined ? Number(r.arancel_excepcion) : null,
         condicion_excepcion: r.condicion_excepcion || null,
@@ -67,21 +68,42 @@ export class NcmDAL {
   }
 
   static async buscarPorDescripcion(query, limit = 12) {
-    const queryNorm = normalizarTexto(query);
-    if (!queryNorm || queryNorm.length < 2) return [];
+    const rawTrimmed = String(query || '').trim();
+    if (rawTrimmed.length < 2) return [];
 
+    const queryDigitsOnly = rawTrimmed.replace(/[.\s-]/g, '');
+    const esConsultaCodigoNcm = /^\d{2,12}[a-zA-Z0-9]{0,4}$/.test(queryDigitsOnly) && /^\d/.test(queryDigitsOnly);
+
+    const queryNorm = normalizarTexto(rawTrimmed);
     const tokens = queryNorm.split(/\s+/).filter((t) => t.length >= 2);
-    if (tokens.length === 0) return [];
+    if (!esConsultaCodigoNcm && tokens.length === 0) return [];
 
     const catalogo = await this._obtenerCatalogoUnificado();
     const scoredMatches = [];
 
     for (const item of catalogo) {
+      const codigoRaw = String(item.codigo_ncm || '');
+      const codigoDigits = codigoRaw.replace(/[.\s-]/g, '').toLowerCase();
+
+      if (esConsultaCodigoNcm) {
+        const qLower = queryDigitsOnly.toLowerCase();
+        if (codigoDigits === qLower || codigoRaw.toLowerCase() === rawTrimmed.toLowerCase()) {
+          scoredMatches.push({ item, score: 2000 + (item.esDestacado ? 300 : 0) });
+          continue;
+        }
+        if (codigoDigits.startsWith(qLower) || codigoRaw.toLowerCase().startsWith(rawTrimmed.toLowerCase())) {
+          scoredMatches.push({ item, score: 1400 + (item.esDestacado ? 300 : 0) });
+          continue;
+        }
+      }
+
+      if (tokens.length === 0) continue;
+
       const descRaw = item.descripcion || '';
       const catRaw = item.categoria || '';
       const descNorm = normalizarTexto(descRaw);
       const catNorm = normalizarTexto(catRaw);
-      const fullNorm = `${descNorm} ${catNorm}`;
+      const fullNorm = `${descNorm} ${catNorm} ${codigoRaw.toLowerCase()}`;
 
       let matchesAll = true;
       for (const tok of tokens) {

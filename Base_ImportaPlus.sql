@@ -68,10 +68,13 @@ ALTER TABLE public.puertos_aduanas ADD COLUMN IF NOT EXISTS dvh VARCHAR(64) NOT 
 CREATE TABLE IF NOT EXISTS public.forwarders (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     nombre VARCHAR(120) NOT NULL CHECK (char_length(trim(nombre)) BETWEEN 1 AND 120),
-    imagen_url TEXT NOT NULL CHECK (char_length(trim(imagen_url)) BETWEEN 1 AND 1024),
+    imagen_url TEXT NOT NULL CHECK (
+        char_length(trim(imagen_url)) BETWEEN 1 AND 160000
+        AND imagen_url ~* '^(https://|/(?!/)|data:image/(jpeg|jpg|png|webp);base64,)'
+    ),
     whatsapp VARCHAR(40) NOT NULL CHECK (char_length(trim(whatsapp)) BETWEEN 6 AND 40),
     email VARCHAR(150) NOT NULL CHECK (email ~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$'),
-    orden INT NOT NULL DEFAULT 1 CHECK (orden BETWEEN 1 AND 100),
+    orden INT NOT NULL DEFAULT 1 CHECK (orden BETWEEN 1 AND 999),
     activo BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),

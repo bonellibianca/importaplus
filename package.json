@@ -1,27 +1,26 @@
 {
   "name": "importa-plus",
   "version": "1.0.0",
-  "description": "IMPORTA+ | Simulador Oficial de Costos de Importación Aduanera Argentina (Persistencia Excel)",
+  "description": "IMPORTA+ | Simulador Oficial de Costos de Importación Aduanera Argentina (Persistencia Híbrida Supabase + Excel)",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:calculo": "python test_calculo_pn1.py",
-    "seed:nomenclador": "python scripts/seed_excel.py"
+    "test": "node scripts/test-suite.mjs",
+    "test:calculo": "node scripts/test-suite.mjs"
   },
   "dependencies": {
-    "next": "^14.2.15",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "next": "^16.4.6",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "server-only": "^0.0.1",
-    "xlsx": "^0.18.5",
-    "zod": "^3.23.8"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.47",
+    "postcss": "^8.5.33",
     "tailwindcss": "^3.4.14"
   }
 }

@@ -2,8 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using AdminImportaPlus.BE;
 
 namespace AdminImportaPlus.BLL;
@@ -15,6 +18,72 @@ namespace AdminImportaPlus.BLL;
 public static class SeguridadYDigitoVerificadorBLL
 {
     private const int BcryptWorkFactor = 11;
+    public const string DummyBcryptHash = "$2a$11$2JNMl4BJq3luXja8OugiIOywkepWfFi9sX6lccOFiayFaljaei5fS";
+
+    public static bool ValidarFortalezaPassword(string? passwordPlano, out string mensajeError)
+    {
+        if (string.IsNullOrWhiteSpace(passwordPlano) || passwordPlano.Length < 8)
+        {
+            mensajeError = "La nueva contraseña debe tener al menos 8 caracteres.";
+            return false;
+        }
+
+        if (passwordPlano.Length > 72)
+        {
+            mensajeError = "La contraseña no debe superar los 72 caracteres (límite criptográfico BCrypt).";
+            return false;
+        }
+
+        bool tieneLetra = passwordPlano.Any(char.IsLetter);
+        bool tieneDigito = passwordPlano.Any(char.IsDigit);
+        if (!tieneLetra || !tieneDigito)
+        {
+            mensajeError = "La nueva contraseña debe combinar al menos una letra y un número.";
+            return false;
+        }
+
+        mensajeError = string.Empty;
+        return true;
+    }
+
+    public static bool EsUrlImagenSegura(string? rawUrl)
+    {
+        if (string.IsNullOrWhiteSpace(rawUrl)) return false;
+        string trimmed = rawUrl.Trim();
+        if (trimmed.Length > 200000) return false;
+
+        if (Regex.IsMatch(trimmed, @"^data:image/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=]+$", RegexOptions.IgnoreCase))
+        {
+            return true;
+        }
+
+        if (!Uri.TryCreate(trimmed, UriKind.Absolute, out var uri)) return false;
+        if (!string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)) return false;
+        if (uri.IsLoopback) return false;
+
+        string host = uri.Host.ToLowerInvariant();
+        if (host == "localhost" || host.EndsWith(".local", StringComparison.Ordinal) || host.EndsWith(".internal", StringComparison.Ordinal))
+            return false;
+
+        if (IPAddress.TryParse(host, out var ip))
+        {
+            if (IPAddress.IsLoopback(ip)) return false;
+            if (ip.AddressFamily == AddressFamily.InterNetwork)
+            {
+                byte[] b = ip.GetAddressBytes();
+                if (b[0] == 10 || b[0] == 127) return false;
+                if (b[0] == 169 && b[1] == 254) return false;
+                if (b[0] == 192 && b[1] == 168) return false;
+                if (b[0] == 172 && b[1] >= 16 && b[1] <= 31) return false;
+            }
+            else if (ip.IsIPv6LinkLocal || ip.IsIPv6SiteLocal)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     public static string HashearPasswordBcrypt(string passwordPlano)
     {

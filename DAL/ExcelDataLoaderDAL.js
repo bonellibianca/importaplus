@@ -179,6 +179,9 @@ class ExcelDataLoaderDAL {
             { concepto: 'Arancel SIM + Digitalización', alicuota: 'Cargo Fijo Oficial', montoUSD: Number(be.totalSimDigitalizacion || 38) }
           ];
 
+      const incidenciaFiscal = be.incidenciaFiscalPct ??
+        (fobTotal > 0 ? +((totalGrav / fobTotal) * 100).toFixed(1) : 0);
+
       window.ExcelExportHelper.exportarComprobanteXlsx({
         idCotizacion,
         fechaEmision: be.fechaHora,
@@ -192,7 +195,7 @@ class ExcelDataLoaderDAL {
         seguro,
         cif,
         desglose,
-        incidenciaPct: be.ratioSobrecostoPct ?? 0,
+        incidenciaPct: incidenciaFiscal,
         totalGrav: totalGrav,
         costoNac,
         costoUnit,
@@ -243,12 +246,18 @@ class ExcelDataLoaderDAL {
     filas.push(['Tipo de Cambio Oficial BNA (ARS/USD)', 'Referencia BNA', tcBna.toFixed(2)]);
     filas.push(['COSTO TOTAL ESTIMADO (ARS)', 'Pesos Argentinos', costoArs.toFixed(2)]);
 
-    const csvContent = '\uFEFF' + filas.map((f) => f.join(';')).join('\r\n');
+    const escaparCeldaCsv = (v) => {
+      const s = String(v ?? '').replace(/\r?\n/g, ' ');
+      const safe = (/^[=+\-@\t\r]/.test(s) && !/^-[0-9]+(?:\.[0-9]+)?$/.test(s)) ? `'${s}` : s;
+      return (safe.includes(';') || safe.includes('"')) ? `"${safe.replace(/"/g, '""')}"` : safe;
+    };
+    const csvContent = '\uFEFF' + filas.map((f) => f.map(escaparCeldaCsv).join(';')).join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Comprobante_ImportaPlus_${idCotizacion}.csv`);
+    const safeDownloadId = String(idCotizacion || 'IMP').replace(/[^a-zA-Z0-9_-]/g, '');
+    link.setAttribute('download', `Comprobante_ImportaPlus_${safeDownloadId}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

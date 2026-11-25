@@ -5,6 +5,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*", "middleware.js", "next.config.mjs"],
+  "include": ["src/**/*", "next.config.mjs"],
   "exclude": ["node_modules", "AdminImportaPlus"]
 }

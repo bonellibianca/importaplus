@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
-import { checkRateLimit } from '@/server/security/rateLimiter';
+import { checkRateLimit, getClientIp } from '@/server/security/rateLimiter';
 import { SolicitudLeadSchema } from '@/server/security/schemas';
 import { verifyTurnstileToken } from '@/server/security/turnstileVerifier';
 import { LeadContactoBLL } from '@/server/bll/LeadContactoBLL';
+import { DomainValidationError } from '@/server/bll/CalculadoraArancelariaBLL';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
-  const forwardedFor = request.headers.get('x-forwarded-for');
-  const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : '127.0.0.1';
+  const ip = getClientIp(request);
 
   const rateStatus = checkRateLimit(ip, 'leads_endpoint', 4, 60 * 60 * 1000);
   if (!rateStatus.allowed) {
@@ -19,9 +19,17 @@ export async function POST(request) {
     );
   }
 
+  let rawBody;
   try {
-    const rawBody = await request.json();
+    rawBody = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: 'Cuerpo JSON malformado o vacío.' },
+      { status: 400 }
+    );
+  }
 
+  try {
     const validacion = SolicitudLeadSchema.safeParse(rawBody);
     if (!validacion.success) {
       return NextResponse.json(
@@ -42,6 +50,13 @@ export async function POST(request) {
 
     return NextResponse.json(resultado, { status: 201 });
   } catch (error) {
+    if (error instanceof DomainValidationError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.statusCode || 404 }
+      );
+    }
+
     console.error('[API_LEADS_ERROR]:', error.message);
     return NextResponse.json(
       { error: 'No se pudo procesar la solicitud de contacto' },

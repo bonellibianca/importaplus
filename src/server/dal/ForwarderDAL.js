@@ -1,4 +1,6 @@
 import 'server-only';
+import fs from 'fs';
+import path from 'path';
 import { getCachedOrFetch, supabaseSelect, isSupabaseConfigured } from './supabaseClient';
 
 export const FALLBACK_FORWARDERS_4 = [
@@ -40,24 +42,42 @@ export const FALLBACK_FORWARDERS_4 = [
   }
 ];
 
+export function esUrlImagenSegura(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return false;
+  const trimmed = rawUrl.trim();
+  if (!trimmed || trimmed.length > 160000) return false;
+  if (trimmed.startsWith('/') && !trimmed.startsWith('//')) return true;
+  if (/^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=]+$/i.test(trimmed)) return true;
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 function normalizarForwarder(f, idx) {
+  const rawImg = String(f.imagen_url || '').trim();
+  const safeImg = esUrlImagenSegura(rawImg)
+    ? rawImg
+    : FALLBACK_FORWARDERS_4[idx % FALLBACK_FORWARDERS_4.length].imagen_url;
+
   return {
-    id: f.id || `fwd-${idx + 1}`,
+    id: String(f.id || FALLBACK_FORWARDERS_4[idx % FALLBACK_FORWARDERS_4.length].id).trim(),
     nombre: String(f.nombre || f.razon_social || 'Forwarder Internacional').trim().slice(0, 120),
-    imagen_url: String(f.imagen_url || FALLBACK_FORWARDERS_4[idx % 4].imagen_url).trim(),
-    whatsapp: String(f.whatsapp || f.telefono || '').trim(),
-    email: String(f.email || f.email_notificacion || '').trim(),
+    imagen_url: safeImg,
+    whatsapp: String(f.whatsapp || f.telefono || '').trim().slice(0, 40),
+    email: String(f.email || f.email_notificacion || '').trim().slice(0, 150),
     orden: Number(f.orden) || idx + 1,
     activo: f.activo !== false
   };
 }
 
 /**
- * Capa DAL: Forwarders gestionados desde el .exe en .NET 9 sobre Supabase.
- * Sin límite de cantidad: la Web los renderiza en grilla de 4 por fila (4, abajo 4, etc.).
+ * Capa DAL: Forwarders unificada (Supabase Cloud -> Espejo Local web_sync.json -> Semilla Oficial).
  */
 export class ForwarderDAL {
-  static async obtenerGrillaCuatro() {
+  static async obtenerConOrigen() {
     if (isSupabaseConfigured()) {
       const rows = await getCachedOrFetch('forwarders:grid_all', 5 * 60 * 1000, async () => {
         return await supabaseSelect(
@@ -67,10 +87,36 @@ export class ForwarderDAL {
       });
 
       if (Array.isArray(rows) && rows.length > 0) {
-        return rows.map(normalizarForwarder);
+        return { forwarders: rows.map(normalizarForwarder), source: 'supabase_cached' };
       }
     }
 
-    return FALLBACK_FORWARDERS_4.map(normalizarForwarder);
+    const syncPath = path.join(process.cwd(), 'DAL/database/web_sync.json');
+    if (fs.existsSync(syncPath)) {
+      try {
+        const raw = JSON.parse(fs.readFileSync(syncPath, 'utf8').replace(/^\uFEFF/, ''));
+        if (Array.isArray(raw.forwarders) && raw.forwarders.length > 0) {
+          const activos = raw.forwarders
+            .filter((f) => f && f.activo !== false)
+            .sort((a, b) => (Number(a.orden) || 1) - (Number(b.orden) || 1))
+            .map(normalizarForwarder);
+          if (activos.length > 0) {
+            return { forwarders: activos, source: 'local_admin_sync' };
+          }
+        }
+      } catch (err) {
+        console.warn('[ForwarderDAL_SYNC_WARN]:', err.message);
+      }
+    }
+
+    return {
+      forwarders: FALLBACK_FORWARDERS_4.map(normalizarForwarder),
+      source: 'seed_fallback'
+    };
+  }
+
+  static async obtenerGrillaCuatro() {
+    const { forwarders } = await this.obtenerConOrigen();
+    return forwarders;
   }
 }

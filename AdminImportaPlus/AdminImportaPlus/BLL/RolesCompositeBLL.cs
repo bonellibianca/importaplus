@@ -362,4 +362,50 @@ public sealed class RolesCompositeBLL
 
         return new TreeNode($"🔑 {comp.Nombre} [{comp.Codigo}]") { Tag = comp.Id };
     }
+
+    public HashSet<string> ObtenerCodigosPermisosUsuario(string? username)
+    {
+        var efectivos = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(username)) return efectivos;
+
+        string cleanUser = username.Trim();
+        if (!Store.PerfilPorUsuario.TryGetValue(cleanUser, out var perfilId))
+        {
+            if (string.Equals(cleanUser, "Admin", StringComparison.OrdinalIgnoreCase))
+            {
+                var adminPerfil = Store.Perfiles.FirstOrDefault(p =>
+                    string.Equals(p.Nombre, "Administrador Total", StringComparison.OrdinalIgnoreCase))
+                    ?? Store.Perfiles.FirstOrDefault();
+                if (adminPerfil == null) return efectivos;
+                perfilId = adminPerfil.Id;
+            }
+            else
+            {
+                return efectivos;
+            }
+        }
+
+        var perfil = Store.Perfiles.FirstOrDefault(p => p.Id == perfilId);
+        if (perfil == null) return efectivos;
+
+        var grafo = ConstruirGrafoComposite();
+        foreach (var compId in perfil.ComponentesAsignadosIds)
+        {
+            if (grafo.TryGetValue(compId, out var comp))
+            {
+                foreach (var cod in comp.ObtenerCodigosEfectivos())
+                {
+                    efectivos.Add(cod);
+                }
+            }
+        }
+
+        return efectivos;
+    }
+
+    public bool TienePermiso(string? username, string codigoPermiso)
+    {
+        if (string.IsNullOrWhiteSpace(codigoPermiso)) return false;
+        return ObtenerCodigosPermisosUsuario(username).Contains(codigoPermiso.Trim().ToUpperInvariant());
+    }
 }

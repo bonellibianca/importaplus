@@ -1,9 +1,18 @@
 ﻿window.__IMPORTA_ADMIN_SYNC__ = {
-  "updatedAt": "2026-11-24T23:50:50.7038033+00:00",
+  "updatedAt": "2026-11-25T12:00:00.0000000+00:00",
   "forwarders": [
     {
+      "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "nombre": "Bonelli & Asociados Global Logistics",
+      "imagen_url": "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=600&q=80",
+      "whatsapp": "+5491143218800",
+      "email": "contacto@importaplus.com.ar",
+      "orden": 1,
+      "activo": true
+    },
+    {
       "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-      "nombre": "IMAGEN DE ALGO",
+      "nombre": "NEXA Ocean & Air Forwarding",
       "imagen_url": "https://images.unsplash.com/photo-1494412574643-ff11b0a5c1c3?auto=format&fit=crop&w=600&q=80",
       "whatsapp": "+5491152391100",
       "email": "operaciones@importaplus.com.ar",
@@ -12,7 +21,7 @@
     },
     {
       "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
-      "nombre": "Ezeiza",
+      "nombre": "Ezeiza Express Cargo & Customs",
       "imagen_url": "https://images.unsplash.com/photo-1570710891163-6d3b5c47248b?auto=format&fit=crop&w=600&q=80",
       "whatsapp": "+5491144802233",
       "email": "ezeiza@importaplus.com.ar",
@@ -20,13 +29,70 @@
       "activo": true
     },
     {
-      "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-      "nombre": "Test de monaliza",
-      "imagen_url": "https://exqyupuliqxsxejgouho.supabase.co/storage/v1/object/public/forwarders/fwd_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_1795563764.jpg",
-      "whatsapp": "+5491143218800",
-      "email": "contacto@importaplus.com.ar",
-      "orden": 7,
+      "id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+      "nombre": "Andina Multimodal Internacional",
+      "imagen_url": "https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=600&q=80",
+      "whatsapp": "+5492614205544",
+      "email": "mendoza@importaplus.com.ar",
+      "orden": 4,
       "activo": true
+    }
+  ],
+  "puertos": [
+    {
+      "id": "22222222-2222-2222-2222-222222222222",
+      "nombre": "Aduana de Ezeiza",
+      "via_ingreso": "AEREA",
+      "provincia": "Buenos Aires",
+      "codigo_sim": "ADU-073-EZE",
+      "operador": "ARCA-DGA / Aeropuertos Argentina 2000",
+      "infraestructura": "Terminal de Cargas Aéreas (TCA) con cámaras frigoríficas y depósito fiscal.",
+      "latitud": -34.822200,
+      "longitud": -58.535800
+    },
+    {
+      "id": "44444444-4444-4444-4444-444444444444",
+      "nombre": "Paso Cristo Redentor",
+      "via_ingreso": "TERRESTRE",
+      "provincia": "Mendoza",
+      "codigo_sim": "ADU-042-PCR",
+      "operador": "Gendarmería Nacional / ARCA-DGA",
+      "infraestructura": "Complejo Fronterizo Los Horcones - Corredor Bioceánico.",
+      "latitud": -32.835300,
+      "longitud": -70.064900
+    },
+    {
+      "id": "11111111-1111-1111-1111-111111111111",
+      "nombre": "Puerto de Buenos Aires",
+      "via_ingreso": "MARITIMA_FLUVIAL",
+      "provincia": "Ciudad Autónoma de Buenos Aires",
+      "codigo_sim": "ADU-001-PBA",
+      "operador": "AGPSE (Administración General de Puertos)",
+      "infraestructura": "Terminales 1, 2, 3, 4 y 5 (Puerto Nuevo). Escáneres de alta penetración.",
+      "latitud": -34.598500,
+      "longitud": -58.373100
+    },
+    {
+      "id": "55555555-5555-5555-5555-555555555555",
+      "nombre": "Puerto de Mar del Plata",
+      "via_ingreso": "MARITIMA_FLUVIAL",
+      "provincia": "Buenos Aires",
+      "codigo_sim": "ADU-038-MDP",
+      "operador": "Consorcio Portuario Regional Mar del Plata",
+      "infraestructura": "Terminal de contenedores y carga frigorífica industrial regional.",
+      "latitud": -38.005500,
+      "longitud": -57.542600
+    },
+    {
+      "id": "33333333-3333-3333-3333-333333333333",
+      "nombre": "Puerto de Rosario",
+      "via_ingreso": "MARITIMA_FLUVIAL",
+      "provincia": "Santa Fe",
+      "codigo_sim": "ADU-052-ROS",
+      "operador": "Ente Administrador Puerto Rosario (ENAPRO)",
+      "infraestructura": "Muelle de aguas profundas sobre la Hidrovía Paraná-Paraguay.",
+      "latitud": -32.946800,
+      "longitud": -60.639300
     }
   ]
 };

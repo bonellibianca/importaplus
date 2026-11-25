@@ -130,6 +130,10 @@ class CalculadorAduaneroTemplate {
     be.costoTotalNacionalizado = +(be.cifAduanero + be.totalGravamenes).toFixed(2);
     be.costoUnitarioNacionalizado = +(be.costoTotalNacionalizado / be.cantidad).toFixed(2);
 
+    be.incidenciaFiscalPct = be.fobTotal > 0
+      ? +((be.totalGravamenes / be.fobTotal) * 100).toFixed(1)
+      : 0;
+
     be.ratioSobrecostoPct = be.fobTotal > 0
       ? +(((be.costoTotalNacionalizado - be.fobTotal) / be.fobTotal) * 100).toFixed(1)
       : 0;
@@ -142,8 +146,16 @@ class CalculadorAduaneroTemplate {
     if (!be.hashCotizacion) {
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       let res = 'IMP-';
-      for (let i = 0; i < 8; i++) {
-        res += chars.charAt(Math.floor(Math.random() * chars.length));
+      if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        const rnd = new Uint8Array(8);
+        crypto.getRandomValues(rnd);
+        for (let i = 0; i < 8; i++) {
+          res += chars.charAt(rnd[i] % chars.length);
+        }
+      } else {
+        for (let i = 0; i < 8; i++) {
+          res += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
       }
       be.hashCotizacion = res;
     }
@@ -184,7 +196,11 @@ class CalculadorAduaneroTemplate {
         alicuotaPct: be.alicuotaIva,
         montoUSD: be.montoIva,
         porcentajeSobreTotal: +( (be.montoIva / be.totalGravamenes) * 100 || 0).toFixed(1),
-        descripcion: be.posicion.esBienDeCapital ? 'Tasa reducida 10.5% por tratarse de Bien de Capital (BK)' : 'Tasa general aduanera del 21%'
+        descripcion: be.alicuotaIva === 10.5
+          ? (be.posicion.esInformaticaTelecom
+              ? 'Tasa reducida 10.5% por Bien de Informática y Telecomunicaciones (BIT)'
+              : 'Tasa reducida 10.5% por tratarse de Bien de Capital (BK)')
+          : 'Tasa general aduanera del 21%'
       }),
       new GravamenClass({
         id: 'iva_adic',

@@ -5,23 +5,16 @@ import { GravamenItemBE } from '../../be/GravamenItemBE';
 /**
  * Capa BLL (Business Logic Layer) - Servidor Node.js
  * Patrón de Diseño GoF: TEMPLATE METHOD (Método Plantilla)
- * 
- * Clase Base: CalculadorAduaneroTemplate
- * Define el esqueleto inmutable de la liquidación aduanera argentina (RF03 / PN1)
- * garantizando que los cálculos se ejecuten exclusivamente en el servidor (Backend-Only BLL).
  */
 export class CalculadorAduaneroTemplate {
-  /**
-   * Método Plantilla (Template Method)
-   * Define la secuencia algorítmica inmutable para la liquidación arancelaria.
-   */
   liquidarOperacion(contexto) {
     const { cantidad, valorFobUnitario, condicionImportador = 'REVENTA_RI', tipoCambioBNA = 1420.50 } = contexto;
+    const cantSegura = Math.max(1, Number(cantidad) || 1);
 
     // 1. Valor FOB Total
-    const fobTotal = this.calcularFobTotal(cantidad, valorFobUnitario);
+    const fobTotal = this.calcularFobTotal(cantSegura, valorFobUnitario);
 
-    // 2. Flete y Seguro Internacional (Reales o Supletorios Legales)
+    // 2. Flete y Seguro Internacional
     const { flete, seguro, cif } = this.calcularValorCIF(fobTotal, contexto);
 
     // 3. Paso Polimórfico (Hook): Derechos de Importación (DIE)
@@ -45,7 +38,6 @@ export class CalculadorAduaneroTemplate {
     // 9. Arancel SIM ($28) + Tasa de Digitalización ($10) = $38 Fijo
     const arancelSimItem = this.calcularArancelesFijosSIM();
 
-    // Consolidación de Gravámenes
     const gravamenes = [
       dieItem,
       estadisticaItem,
@@ -64,7 +56,6 @@ export class CalculadorAduaneroTemplate {
       arancelSimItem
     ];
 
-    // Cálculo de Totales
     const totalGravamenesUSD = Number((
       dieItem.montoUSD +
       estadisticaItem.montoUSD +
@@ -75,11 +66,11 @@ export class CalculadorAduaneroTemplate {
     ).toFixed(2));
 
     const costoTotalNacionalizadoUSD = Number((cif + totalGravamenesUSD).toFixed(2));
-    const costoUnitarioFinalUSD = Number((costoTotalNacionalizadoUSD / cantidad).toFixed(2));
-    const incidenciaFiscalPct = Number(((totalGravamenesUSD / fobTotal) * 100).toFixed(1));
+    const costoUnitarioFinalUSD = Number((costoTotalNacionalizadoUSD / cantSegura).toFixed(2));
+    const incidenciaFiscalPct = fobTotal > 0 ? Number(((totalGravamenesUSD / fobTotal) * 100).toFixed(1)) : 0;
+    const sobrecostoTotalPct = fobTotal > 0 ? Number((((costoTotalNacionalizadoUSD - fobTotal) / fobTotal) * 100).toFixed(1)) : 0;
     const costoTotalEstimadoARS = Number((costoTotalNacionalizadoUSD * tipoCambioBNA).toFixed(2));
 
-    // Hash único e inmutable para trazabilidad (RF02 - PN2)
     const hashRandom = crypto.randomBytes(3).toString('hex').toUpperCase();
     const idCotizacion = `IMP-${new Date().getFullYear()}-${hashRandom}`;
 
@@ -88,7 +79,7 @@ export class CalculadorAduaneroTemplate {
       fechaEmision: new Date().toISOString(),
       regimenAplicado: this.getNombreRegimen(contexto),
       parametrosComerciales: {
-        cantidad,
+        cantidad: cantSegura,
         valorFobUnitario,
         valorFobTotal: fobTotal,
         flete,
@@ -101,6 +92,7 @@ export class CalculadorAduaneroTemplate {
         costoTotalNacionalizadoUSD,
         costoUnitarioFinalUSD,
         incidenciaFiscalPct,
+        sobrecostoTotalPct,
         tipoCambioBNA,
         costoTotalEstimadoARS
       }
@@ -112,7 +104,6 @@ export class CalculadorAduaneroTemplate {
   }
 
   calcularValorCIF(fobTotal, { fleteOpcional, seguroOpcional }) {
-    // Si el usuario no ingresa flete o lo deja en 0, no se suma flete automático
     const flete = (fleteOpcional !== null && fleteOpcional !== undefined && fleteOpcional !== '')
       ? Math.max(0, Number(Number(fleteOpcional).toFixed(2)))
       : 0;
@@ -126,11 +117,7 @@ export class CalculadorAduaneroTemplate {
     return { flete, seguro, cif };
   }
 
-  /**
-   * Tasa de Estadística Aduanera (3% con topes legales del Decreto 99/2019)
-   */
   calcularTasaEstadistica(cif, { ncm, pais }) {
-    // Exenciones normadas: Mercosur (Intrazona) y Bienes de Capital (BK) están exentos (0%)
     if (pais.es_mercosur || ncm.tipo_bien === 'BK') {
       return new GravamenItemBE({
         id: 'tasa_estadistica',
@@ -144,7 +131,6 @@ export class CalculadorAduaneroTemplate {
 
     const tasaBruta = Number((cif * 0.03).toFixed(2));
 
-    // Escala de topes máximos en USD según Decreto 99/2019 y prórrogas
     let topeMaximo = 150000;
     if (cif < 10000) {
       topeMaximo = 180;
@@ -170,8 +156,15 @@ export class CalculadorAduaneroTemplate {
     const explicitIva = Number(ncm.iva_alicuota);
     const alicuota = explicitIva > 0
       ? explicitIva
-      : (ncm.tipo_bien === 'BK' ? 10.5 : 21);
+      : (ncm.tipo_bien === 'BK' || ncm.tipo_bien === 'BIT' ? 10.5 : 21);
     const monto = Number((baseImponible * (alicuota / 100)).toFixed(2));
+
+    let descripcionIva = 'Alícuota general de importación DGA';
+    if (alicuota === 10.5) {
+      descripcionIva = ncm.tipo_bien === 'BIT'
+        ? 'Alícuota reducida 10.5% por Bien de Informática y Telecomunicaciones (BIT)'
+        : 'Alícuota reducida 10.5% por Bien de Capital (BK)';
+    }
 
     return new GravamenItemBE({
       id: 'iva_aduanero',
@@ -179,7 +172,7 @@ export class CalculadorAduaneroTemplate {
       alicuota: `${alicuota}%`,
       alicuotaNum: alicuota,
       montoUSD: monto,
-      descripcion: ncm.tipo_bien === 'BK' ? 'Alícuota reducida 10.5% por Bien de Capital (BK)' : 'Alícuota general de importación DGA'
+      descripcion: descripcionIva
     });
   }
 
@@ -225,7 +218,6 @@ export class CalculadorAduaneroTemplate {
     });
   }
 
-  // Hook abstracto
   calcularDerechoImportacion(cif, contexto) {
     throw new Error('calcularDerechoImportacion() debe ser implementado por la subclase');
   }
@@ -235,9 +227,6 @@ export class CalculadorAduaneroTemplate {
   }
 }
 
-/**
- * Subclase Concreta 1: Régimen Intrazona (Mercosur)
- */
 export class LiquidacionIntrazonaBLL extends CalculadorAduaneroTemplate {
   calcularDerechoImportacion(cif, { ncm, pais }) {
     return new GravamenItemBE({
@@ -250,14 +239,11 @@ export class LiquidacionIntrazonaBLL extends CalculadorAduaneroTemplate {
     });
   }
 
-  getNombreRegimen(contexto) {
+  getNombreRegimen() {
     return 'Intrazona Mercosur (0% DIE)';
   }
 }
 
-/**
- * Subclase Concreta 2: Régimen General Extrazona (AEC)
- */
 export class LiquidacionExtrazonaGeneralBLL extends CalculadorAduaneroTemplate {
   calcularDerechoImportacion(cif, { ncm }) {
     const alicuota = Number(ncm.aec || 0);
@@ -273,14 +259,11 @@ export class LiquidacionExtrazonaGeneralBLL extends CalculadorAduaneroTemplate {
     });
   }
 
-  getNombreRegimen(contexto) {
+  getNombreRegimen() {
     return 'Extrazona General (Arancel Externo Común AEC)';
   }
 }
 
-/**
- * Subclase Concreta 3: Régimen de Excepción Arancelaria (Decreto 557/2023)
- */
 export class LiquidacionExcepcionArancelariaBLL extends CalculadorAduaneroTemplate {
   calcularDerechoImportacion(cif, { ncm }) {
     const alicuota = Number(ncm.arancel_excepcion ?? ncm.aec);

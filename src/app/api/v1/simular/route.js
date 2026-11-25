@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server';
-import { checkRateLimit } from '@/server/security/rateLimiter';
+import { checkRateLimit, getClientIp } from '@/server/security/rateLimiter';
 import { SimularOperacionSchema } from '@/server/security/schemas';
 import { verifyTurnstileToken } from '@/server/security/turnstileVerifier';
-import { CalculadoraArancelariaBLL } from '@/server/bll/CalculadoraArancelariaBLL';
+import { CalculadoraArancelariaBLL, DomainValidationError } from '@/server/bll/CalculadoraArancelariaBLL';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
-  const forwardedFor = request.headers.get('x-forwarded-for');
-  const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : '127.0.0.1';
+  const ip = getClientIp(request);
 
   const rateStatus = checkRateLimit(ip, 'simular_endpoint', 10, 60 * 1000);
   if (!rateStatus.allowed) {
@@ -25,9 +24,17 @@ export async function POST(request) {
     );
   }
 
+  let rawBody;
   try {
-    const rawBody = await request.json();
+    rawBody = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: 'Cuerpo JSON malformado o vacío.' },
+      { status: 400 }
+    );
+  }
 
+  try {
     const validacion = SimularOperacionSchema.safeParse(rawBody);
     if (!validacion.success) {
       return NextResponse.json(
@@ -36,7 +43,6 @@ export async function POST(request) {
       );
     }
 
-    // Corrección Bug de Seguridad: verificar siempre Turnstile cuando está activo en producción
     const turnstileCheck = await verifyTurnstileToken(validacion.data.turnstileToken, ip);
     if (!turnstileCheck.success) {
       return NextResponse.json(
@@ -61,9 +67,16 @@ export async function POST(request) {
       }
     );
   } catch (error) {
+    if (error instanceof DomainValidationError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.statusCode || 422 }
+      );
+    }
+
     console.error('[API_SIMULAR_ERROR]:', error.message);
     return NextResponse.json(
-      { error: error.message || 'No se pudo procesar la liquidación aduanera' },
+      { error: 'No se pudo procesar la liquidación aduanera en este momento.' },
       { status: 500 }
     );
   }

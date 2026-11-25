@@ -192,21 +192,36 @@ class PosicionArancelariaDAL {
     await this._cargarDesdeExcel();
     if (!this._cachePosiciones || this._cachePosiciones.length === 0) return [];
 
-    // Limpiar números para asegurar búsqueda únicamente por nombre de producto
-    const soloLetras = String(texto || '').replace(/[0-9]/g, ' ');
-    const queryNorm = this._normalizar(soloLetras);
+    const rawTrimmed = String(texto || '').trim();
+    const soloDigitos = rawTrimmed.replace(/[.\s-]/g, '');
+    const esCodigoNcm = /^\d{2,12}[a-zA-Z0-9]{0,4}$/.test(soloDigitos) && /^\d/.test(soloDigitos);
 
-    if (!queryNorm || queryNorm.length < 2) {
+    const queryNorm = this._normalizar(rawTrimmed);
+    if (!esCodigoNcm && (!queryNorm || queryNorm.length < 2)) {
       return [];
     }
 
-    const tokens = queryNorm.split(/\s+/).filter((t) => t.length >= 2);
-    if (tokens.length === 0) return [];
+    const tokens = queryNorm ? queryNorm.split(/\s+/).filter((t) => t.length >= 2) : [];
+    if (!esCodigoNcm && tokens.length === 0) return [];
 
     const resultadosPuntuados = [];
 
     for (let i = 0; i < this._cachePosiciones.length; i++) {
       const pos = this._cachePosiciones[i];
+      if (esCodigoNcm) {
+        const posDigits = String(pos.codigoNcm || '').replace(/[.\s-]/g, '').toLowerCase();
+        const qDigits = soloDigitos.toLowerCase();
+        if (posDigits === qDigits) {
+          resultadosPuntuados.push({ pos, score: 2000 + (pos.esDestacado ? 300 : 0) });
+          continue;
+        }
+        if (posDigits.startsWith(qDigits)) {
+          resultadosPuntuados.push({ pos, score: 1400 + (pos.esDestacado ? 300 : 0) });
+          continue;
+        }
+      }
+
+      if (tokens.length === 0) continue;
       const textoTotal = pos._textoBusquedaNorm || '';
 
       // Todos los tokens buscados deben estar presentes en el nombre/descripción/categoría

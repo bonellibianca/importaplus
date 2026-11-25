@@ -7,6 +7,65 @@ function limpiarNumeroWhatsapp(raw) {
   return String(raw || "").replace(/[^0-9]/g, "");
 }
 
+function esUrlImagenSeguraCliente(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== "string") return false;
+  const trimmed = rawUrl.trim();
+  if (!trimmed || trimmed.length > 160000) return false;
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) return true;
+  if (/^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=]+$/i.test(trimmed)) return true;
+  try {
+    return new URL(trimmed).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+const ALIAS_PAISES_EN = {
+  USA: "united states america usa us",
+  GBR: "united kingdom uk great britain england",
+  DEU: "germany",
+  ESP: "spain",
+  BRA: "brazil",
+  ITA: "italy",
+  FRA: "france",
+  JPN: "japan",
+  KOR: "south korea",
+  CHN: "china",
+  CHE: "switzerland",
+  NLD: "netherlands holland",
+  SWE: "sweden",
+  BEL: "belgium",
+  CAN: "canada",
+  MEX: "mexico"
+};
+
+function traducirConceptoGravamen(item, idioma, dicc) {
+  if (idioma !== "en") return item.concepto;
+  switch (item.id) {
+    case "derechos_importacion":
+      return `${dicc.itemDie} (${item.alicuota})`;
+    case "tasa_estadistica":
+      return `${dicc.itemEstadistica} (${item.alicuota})`;
+    case "base_interior":
+      return "Customs Domestic Taxable Base (CIF + Duty + Statistical Fee)";
+    case "iva_aduanero":
+      return `${dicc.itemIva} (${item.alicuota})`;
+    case "percepcion_iva":
+      return `${dicc.itemIvaAdic} (${item.alicuota})`;
+    case "percepcion_ganancias":
+      return `${dicc.itemGanancias} (${item.alicuota})`;
+    case "arancel_sim":
+      return dicc.itemSim;
+    default:
+      return item.concepto;
+  }
+}
+
+function traducirAlicuota(alicuota, idioma) {
+  if (idioma === "en" && alicuota === "Fijo") return "Fixed";
+  return alicuota;
+}
+
 export default function ImportaPlusApp() {
   // --- PATRÓN OBSERVER: Estado reactivo suscrito a IdiomaSubject (ES / EN) ---
   const [idioma, setIdioma] = useState("es");
@@ -16,7 +75,6 @@ export default function ImportaPlusApp() {
     setIdioma(idiomaSubject.obtenerIdioma());
     setDicc(idiomaSubject.obtenerDiccionario());
 
-    // Observador Concreto suscrito al Sujeto de Idioma
     const observadorReact = {
       actualizarIdioma(nuevoIdioma, nuevoDiccionario) {
         setIdioma(nuevoIdioma);
@@ -28,9 +86,10 @@ export default function ImportaPlusApp() {
     return () => desuscribir();
   }, []);
 
-  // Buscador Predictivo de Producto por Nombre (Debounce 300ms + Caché sesión anti-cuota)
+  // Buscador Predictivo de Producto (Debounce 300ms + AbortController + Caché sesión anti-cuota)
   const [busqueda, setBusqueda] = useState("");
   const [sugerenciasNcm, setSugerenciasNcm] = useState([]);
+  const [busquedaSinResultados, setBusquedaSinResultados] = useState(false);
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
   const [cargandoBusqueda, setCargandoBusqueda] = useState(false);
   const [mostrarDescProducto, setMostrarDescProducto] = useState(false);
@@ -41,31 +100,33 @@ export default function ImportaPlusApp() {
   const [sugerenciasPais, setSugerenciasPais] = useState([]);
   const [paisSeleccionado, setPaisSeleccionado] = useState(null);
 
-  // Variables Comerciales (Inicializadas en 0)
+  // Variables Comerciales
   const [cantidad, setCantidad] = useState(0);
   const [fobUnitario, setFobUnitario] = useState(0);
   const [flete, setFlete] = useState(0);
   const [seguro, setSeguro] = useState(0);
   const [condicionImportador, setCondicionImportador] = useState("REVENTA_RI");
-  const [usaExcepcion] = useState(true);
+  const [usaExcepcion, setUsaExcepcion] = useState(true);
+  const [mensajeError, setMensajeError] = useState("");
 
-  // Resultados, Puertos y Grilla de 4 Forwarders
+  // Resultados, Puertos y Grilla de Forwarders
   const [resultado, setResultado] = useState(null);
   const [mostrarDescResultado, setMostrarDescResultado] = useState(false);
   const [puertosSugeridos, setPuertosSugeridos] = useState([]);
   const [forwarders, setForwarders] = useState([]);
   const [calculando, setCalculando] = useState(false);
   const [mostrarPuertosYForwarders, setMostrarPuertosYForwarders] = useState(false);
-  const [mostrarSeccionForwarders, setMostrarSeccionForwarders] = useState(false);
   const [mailCopiadoId, setMailCopiadoId] = useState(null);
 
   const forwardersRef = useRef(null);
 
-  // Búsqueda incremental con Debounce 300ms + Caché local de sesión para cuidar Supabase Free
+  // Búsqueda incremental con Debounce 300ms + AbortController anti-race-conditions + Caché de sesión
   useEffect(() => {
     const q = busqueda.trim();
     if (q.length < 2 || productoSeleccionado) {
       setSugerenciasNcm([]);
+      setBusquedaSinResultados(false);
+      setCargandoBusqueda(false);
       return;
     }
 
@@ -73,32 +134,46 @@ export default function ImportaPlusApp() {
     try {
       const cached = sessionStorage.getItem(cacheKey);
       if (cached) {
-        setSugerenciasNcm(JSON.parse(cached));
+        const parsed = JSON.parse(cached);
+        setSugerenciasNcm(parsed);
+        setBusquedaSinResultados(parsed.length === 0);
         return;
       }
     } catch {}
 
+    const controller = new AbortController();
     const timer = setTimeout(async () => {
       setCargandoBusqueda(true);
       try {
-        const res = await fetch(`/api/v1/ncm/search?q=${encodeURIComponent(q)}`);
+        const res = await fetch(`/api/v1/ncm/search?q=${encodeURIComponent(q)}`, {
+          signal: controller.signal
+        });
         const data = await res.json();
-        const items = data.results || [];
+        if (controller.signal.aborted) return;
+        const items = Array.isArray(data.results) ? data.results : [];
         setSugerenciasNcm(items);
+        setBusquedaSinResultados(items.length === 0);
         try {
           sessionStorage.setItem(cacheKey, JSON.stringify(items));
         } catch {}
       } catch (err) {
-        console.error("Error al buscar productos:", err);
+        if (err.name !== "AbortError") {
+          console.error("Error al buscar productos:", err);
+        }
       } finally {
-        setCargandoBusqueda(false);
+        if (!controller.signal.aborted) {
+          setCargandoBusqueda(false);
+        }
       }
     }, 300);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [busqueda, productoSeleccionado]);
 
-  // Carga inicial consolidada (1 sola petición cacheada en CDN para países, puertos y 4 forwarders)
+  // Carga inicial consolidada
   useEffect(() => {
     async function cargarDirectorio() {
       try {
@@ -114,40 +189,42 @@ export default function ImportaPlusApp() {
     cargarDirectorio();
   }, []);
 
-  const filtrarPaises = (texto) => {
-    const normalizar = (s) =>
-      String(s || "")
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
+  const normalizarTextoPais = (s) =>
+    String(s || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
 
+  const filtrarPaises = (texto) => {
     const limpio = String(texto || "").replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, "").trim();
-    const term = normalizar(limpio);
+    const term = normalizarTextoPais(limpio);
     if (!term) {
       setSugerenciasPais(paisesCatalogo.slice(0, 15));
       return;
     }
 
-    const filtrados = paisesCatalogo.filter((p) =>
-      normalizar(p.nombre).includes(term)
-    );
+    const filtrados = paisesCatalogo.filter((p) => {
+      const nomEs = normalizarTextoPais(p.nombre);
+      const aliasEn = ALIAS_PAISES_EN[p.codigo_iso] || "";
+      return nomEs.includes(term) || aliasEn.includes(term) || String(p.codigo_iso || "").toLowerCase() === term;
+    });
+
     filtrados.sort((a, b) => {
-      const aStarts = normalizar(a.nombre).startsWith(term);
-      const bStarts = normalizar(b.nombre).startsWith(term);
+      const aStarts = normalizarTextoPais(a.nombre).startsWith(term);
+      const bStarts = normalizarTextoPais(b.nombre).startsWith(term);
       if (aStarts && !bStarts) return -1;
       if (!aStarts && bStarts) return 1;
-      return normalizar(a.nombre).localeCompare(normalizar(b.nombre));
+      return normalizarTextoPais(a.nombre).localeCompare(normalizarTextoPais(b.nombre));
     });
     setSugerenciasPais(filtrados.slice(0, 15));
   };
 
   const abrirForwarders = () => {
-    setMostrarSeccionForwarders(true);
     setTimeout(() => {
       if (forwardersRef.current) {
         forwardersRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
       }
-    }, 80);
+    }, 60);
   };
 
   const redirigirWhatsapp = (fwd) => {
@@ -177,37 +254,35 @@ export default function ImportaPlusApp() {
 
   const ejecutarCalculo = async (e) => {
     e.preventDefault();
+    setMensajeError("");
+
     if (!productoSeleccionado) {
-      alert(dicc.alertProducto);
+      setMensajeError(dicc.alertProducto);
       return;
     }
 
     let paisFinal = paisSeleccionado;
     if (!paisFinal && busquedaPais.trim()) {
-      const normalizar = (s) =>
-        String(s || "")
-          .toLowerCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "");
-      const t = normalizar(busquedaPais.trim());
+      const t = normalizarTextoPais(busquedaPais.trim());
       paisFinal =
-        paisesCatalogo.find((p) => normalizar(p.nombre) === t) ||
-        paisesCatalogo.find((p) => normalizar(p.nombre).includes(t)) ||
+        paisesCatalogo.find((p) => normalizarTextoPais(p.nombre) === t) ||
+        paisesCatalogo.find((p) => (ALIAS_PAISES_EN[p.codigo_iso] || "").split(" ").includes(t)) ||
+        paisesCatalogo.find((p) => normalizarTextoPais(p.nombre).includes(t)) ||
         null;
     }
 
     if (!paisFinal) {
-      alert(dicc.alertPais);
+      setMensajeError(dicc.alertPais);
       return;
     }
 
     if (Number(cantidad) <= 0) {
-      alert(dicc.alertCantidad);
+      setMensajeError(dicc.alertCantidad);
       return;
     }
 
     if (Number(fobUnitario) <= 0) {
-      alert(dicc.alertFob);
+      setMensajeError(dicc.alertFob);
       return;
     }
 
@@ -240,16 +315,24 @@ export default function ImportaPlusApp() {
           setPuertosSugeridos(data.puertosSugeridos);
         }
         setMostrarPuertosYForwarders(false);
-        setMostrarSeccionForwarders(true);
       }
     } catch (err) {
-      alert("Error: " + err.message);
+      setMensajeError(err.message);
     } finally {
       setCalculando(false);
     }
   };
 
   const localeFormato = idioma === "en" ? "en-US" : "es-AR";
+  const cantidadNum = Math.max(0, Number(cantidad) || 0);
+  const fobUnitNum = Math.max(0, Number(fobUnitario) || 0);
+  const fobTotalEnVivo = cantidadNum * fobUnitNum;
+  const tieneExcepcionProducto = Boolean(
+    productoSeleccionado &&
+    productoSeleccionado.anexo_excepcion &&
+    productoSeleccionado.arancel_excepcion !== null &&
+    productoSeleccionado.arancel_excepcion !== undefined
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
@@ -265,7 +348,6 @@ export default function ImportaPlusApp() {
             </p>
           </div>
 
-          {/* Botón Alternador de Idioma Español <-> Inglés (Patrón Observer) */}
           <button
             type="button"
             onClick={() => idiomaSubject.alternarIdioma()}
@@ -294,6 +376,23 @@ export default function ImportaPlusApp() {
             </div>
           </div>
 
+          {mensajeError && (
+            <div
+              role="alert"
+              className="mb-4 p-3.5 bg-rose-50 border border-rose-300 text-[#530618] rounded-lg text-xs font-semibold flex items-center justify-between gap-3"
+            >
+              <span>{mensajeError}</span>
+              <button
+                type="button"
+                onClick={() => setMensajeError("")}
+                className="text-rose-800 hover:text-[#530618] font-bold px-2 py-0.5 rounded"
+                aria-label="Cerrar alerta"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           <form onSubmit={ejecutarCalculo} className="space-y-5">
             <div className="relative">
               <label className="block text-sm font-semibold text-slate-700 mb-1">
@@ -306,8 +405,12 @@ export default function ImportaPlusApp() {
                   setBusqueda(e.target.value);
                   setProductoSeleccionado(null);
                   setMostrarDescProducto(false);
+                  if (mensajeError) setMensajeError("");
                 }}
-                onBlur={() => setSugerenciasNcm([])}
+                onBlur={() => {
+                  setSugerenciasNcm([]);
+                  setBusquedaSinResultados(false);
+                }}
                 placeholder={dicc.phProducto}
                 className="w-full p-3.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#530618] focus:border-[#530618] outline-none text-slate-900 shadow-sm"
               />
@@ -327,14 +430,22 @@ export default function ImportaPlusApp() {
                         e.preventDefault();
                         setProductoSeleccionado(item);
                         setBusqueda(item.descripcion);
+                        setUsaExcepcion(true);
                         setSugerenciasNcm([]);
+                        setBusquedaSinResultados(false);
+                        setMensajeError("");
                       }}
                       className="p-3.5 hover:bg-rose-50/60 cursor-pointer transition-colors text-sm"
                     >
-                      <div className="flex justify-between items-start">
-                        <span className="font-semibold text-slate-900 leading-snug">
-                          {item.descripcion}
-                        </span>
+                      <div className="flex justify-between items-start gap-2">
+                        <div>
+                          <span className="text-[11px] font-mono font-bold text-[#530618] mr-2">
+                            {item.codigo_ncm}
+                          </span>
+                          <span className="font-semibold text-slate-900 leading-snug">
+                            {item.descripcion}
+                          </span>
+                        </div>
                         <span className="ml-3 shrink-0 text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded font-medium">
                           {dicc.arancel}: {item.anexo_excepcion && item.arancel_excepcion !== null ? item.arancel_excepcion : item.aec}%
                         </span>
@@ -344,11 +455,17 @@ export default function ImportaPlusApp() {
                 </ul>
               )}
 
+              {busquedaSinResultados && !cargandoBusqueda && !productoSeleccionado && busqueda.trim().length >= 2 && (
+                <div className="absolute z-20 w-full bg-white border border-slate-300 rounded-lg mt-1 shadow-lg p-3.5 text-xs text-slate-600">
+                  {dicc.sinProductos}
+                </div>
+              )}
+
               {productoSeleccionado && (
-                <div className="mt-3 p-3.5 bg-rose-50/50 border border-rose-200 rounded-lg text-xs">
+                <div className="mt-3 p-3.5 bg-rose-50/50 border border-rose-200 rounded-lg text-xs space-y-2">
                   <div className="flex flex-wrap justify-between items-center gap-2">
                     <span className="font-bold text-[#530618]">
-                      {dicc.prodSeleccionado} · {dicc.arancelBase}: {productoSeleccionado.aec}%
+                      {dicc.prodSeleccionado} ({productoSeleccionado.codigo_ncm}) · {dicc.arancelBase}: {productoSeleccionado.aec}%
                     </span>
                     <div className="flex items-center gap-3">
                       <button
@@ -371,8 +488,26 @@ export default function ImportaPlusApp() {
                       </button>
                     </div>
                   </div>
+
+                  {tieneExcepcionProducto && (
+                    <label className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-rose-200 text-emerald-800 cursor-pointer">
+                      <span className="flex items-center gap-2 font-semibold">
+                        <input
+                          type="checkbox"
+                          checked={usaExcepcion}
+                          onChange={(e) => setUsaExcepcion(e.target.checked)}
+                          className="accent-emerald-700 rounded"
+                        />
+                        {dicc.beneficioDisponible} {productoSeleccionado.anexo_excepcion}
+                      </span>
+                      <span className="font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">
+                        {dicc.arancelReducido}: {productoSeleccionado.arancel_excepcion}%
+                      </span>
+                    </label>
+                  )}
+
                   {mostrarDescProducto && (
-                    <div className="mt-2 pt-2 border-t border-rose-200 text-slate-700 leading-relaxed">
+                    <div className="pt-2 border-t border-rose-200 text-slate-700 leading-relaxed">
                       {productoSeleccionado.descripcion}
                     </div>
                   )}
@@ -403,6 +538,7 @@ export default function ImportaPlusApp() {
                     const soloLetras = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, "");
                     setBusquedaPais(soloLetras);
                     setPaisSeleccionado(null);
+                    if (mensajeError) setMensajeError("");
                     filtrarPaises(soloLetras);
                   }}
                   onFocus={(e) => filtrarPaises(e.target.value)}
@@ -421,6 +557,7 @@ export default function ImportaPlusApp() {
                           setPaisSeleccionado(p);
                           setBusquedaPais(p.nombre);
                           setSugerenciasPais([]);
+                          setMensajeError("");
                         }}
                         className="p-2.5 hover:bg-rose-50 cursor-pointer text-xs flex justify-between items-center"
                       >
@@ -464,6 +601,21 @@ export default function ImportaPlusApp() {
                   className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#530618]"
                 />
               </div>
+            </div>
+
+            {/* Barra de Subtotal FOB en vivo alineada con diseño institucional */}
+            <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                  {dicc.lblFobTotalVivo}
+                </p>
+                <p className="text-[11px] text-[#530618] font-semibold mt-0.5">
+                  {cantidadNum} {dicc.unidAbrev} × USD {fobUnitNum.toLocaleString(localeFormato, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} = USD {fobTotalEnVivo.toLocaleString(localeFormato, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              <span className="text-lg font-bold text-[#530618] tabular-nums">
+                USD {fobTotalEnVivo.toLocaleString(localeFormato, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
             </div>
 
             <div>
@@ -615,6 +767,7 @@ export default function ImportaPlusApp() {
                   {dicc.btnExportarExcel}
                 </button>
                 <button
+                  type="button"
                   onClick={() => window.print()}
                   className="px-4 py-2.5 text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors flex items-center gap-1.5"
                 >
@@ -671,7 +824,7 @@ export default function ImportaPlusApp() {
                   {dicc.costoUnitarioNac} USD {resultado.resumenEconomico.costoUnitarioFinalUSD.toLocaleString(localeFormato, { minimumFractionDigits: 2 })} / {dicc.unidad}
                 </p>
                 <p className="text-xs text-rose-800 mt-2 pt-2 border-t border-rose-200">
-                  ≈ ARS ${resultado.resumenEconomico.costoTotalEstimadoARS.toLocaleString(localeFormato, { minimumFractionDigits: 2 })} ({dicc.card3Tc})
+                  ≈ ARS ${resultado.resumenEconomico.costoTotalEstimadoARS.toLocaleString(localeFormato, { minimumFractionDigits: 2 })} ({dicc.card3Tc}: ${resultado.resumenEconomico.tipoCambioBNA.toLocaleString(localeFormato, { minimumFractionDigits: 2 })})
                 </p>
               </div>
             </div>
@@ -692,13 +845,13 @@ export default function ImportaPlusApp() {
                   <tbody className="divide-y divide-slate-100">
                     {resultado.desgloseTributario.map((item, idx) => (
                       <tr
-                        key={idx}
+                        key={item.id || idx}
                         className={item.esSubtotal ? "bg-slate-50 font-bold text-slate-900" : "hover:bg-slate-50/50"}
                       >
                         <td className="p-3">
-                          <span className="block font-medium">{item.concepto}</span>
+                          <span className="block font-medium">{traducirConceptoGravamen(item, idioma, dicc)}</span>
                         </td>
-                        <td className="p-3 font-mono text-xs">{item.alicuota}</td>
+                        <td className="p-3 font-mono text-xs">{traducirAlicuota(item.alicuota, idioma)}</td>
                         <td className="p-3 text-right font-mono font-semibold">
                           USD {item.montoUSD.toLocaleString(localeFormato, { minimumFractionDigits: 2 })}
                         </td>
@@ -714,6 +867,7 @@ export default function ImportaPlusApp() {
                 {dicc.preguntaPuertos}
               </p>
               <button
+                type="button"
                 onClick={() => setMostrarPuertosYForwarders(!mostrarPuertosYForwarders)}
                 className="bg-[#530618] hover:bg-[#3D0411] text-white px-6 py-3 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
               >
@@ -770,8 +924,8 @@ export default function ImportaPlusApp() {
           </section>
         )}
 
-        {/* PN4: APARTADO FORWARDERS - 4 CUADRADOS ESTILO GRILLA (Foto + Nombre máx 120 chars + Botón WhatsApp + Botón Mail abajo) */}
-        {(mostrarSeccionForwarders || mostrarPuertosYForwarders || forwarders.length > 0) && (
+        {/* PN4: APARTADO FORWARDERS - GRILLA DE 4 POR FILA */}
+        {forwarders.length > 0 && (
           <section ref={forwardersRef} className="bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-slate-200 space-y-6 print:hidden">
             <div className="border-b pb-3">
               <span className="text-xs font-bold uppercase tracking-widest text-[#530618]">
@@ -789,17 +943,18 @@ export default function ImportaPlusApp() {
               {forwarders.map((fwd) => {
                 const nombreCortado = String(fwd.nombre || "").slice(0, 120);
                 const copiado = mailCopiadoId === fwd.id;
+                const imgSegura = esUrlImagenSeguraCliente(fwd.imagen_url) ? fwd.imagen_url : "/logo-importa.png";
                 return (
                   <div
                     key={fwd.id}
                     className="bg-[#FFF8F8] border border-[#F0D0D4] rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:border-[#530618] transition-all flex flex-col justify-between"
                   >
-                    {/* 1. FOTO cuadrada superior */}
                     <div className="w-full aspect-square bg-slate-200 overflow-hidden relative">
                       <img
-                        src={fwd.imagen_url || "/logo-importa.png"}
+                        src={imgSegura}
                         alt={nombreCortado}
                         loading="lazy"
+                        referrerPolicy="no-referrer"
                         onError={(e) => {
                           e.currentTarget.onerror = null;
                           e.currentTarget.src = "/logo-importa.png";
@@ -808,7 +963,6 @@ export default function ImportaPlusApp() {
                       />
                     </div>
 
-                    {/* 2. Nombre arriba de los dos botones (máximo 120 caracteres) + WhatsApp + Mail abajo */}
                     <div className="p-4 flex flex-col flex-1 justify-between gap-3">
                       <h4
                         className="text-sm font-bold text-[#171717] text-center leading-snug break-words"
@@ -818,7 +972,6 @@ export default function ImportaPlusApp() {
                       </h4>
 
                       <div className="space-y-2">
-                        {/* Botón Superior: Icono de WhatsApp -> Redirige a WhatsApp */}
                         <button
                           type="button"
                           onClick={() => redirigirWhatsapp(fwd)}
@@ -830,7 +983,6 @@ export default function ImportaPlusApp() {
                           <span>{dicc.btnWhatsapp}</span>
                         </button>
 
-                        {/* Botón Inferior: Icono de Mail -> Copia el Mail cargado */}
                         <button
                           type="button"
                           onClick={() => copiarEmailForwarder(fwd)}

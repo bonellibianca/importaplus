@@ -1,6 +1,8 @@
 import 'server-only';
 import { z } from 'zod';
 
+const SIN_CARACTERES_CONTROL = /^[^\x00-\x1F\x7F]+$/;
+
 /**
  * Esquema de Validación para Búsqueda Incremental NCM (RF01.1)
  */
@@ -14,7 +16,6 @@ export const BusquedaNcmSchema = z.object({
 
 /**
  * Esquema de Validación para Simulación Aduanera (RF02 / PN1)
- * Corrige bug de rechazo en posiciones NCM con sub-sufijos SIM de hasta 15 caracteres.
  */
 export const SimularOperacionSchema = z.object({
   codigoNcm: z.string()
@@ -22,8 +23,8 @@ export const SimularOperacionSchema = z.object({
     .regex(/^\d{4}\.\d{2}\.\d{2}(?:\.[A-Z0-9]{1,4})?$/, 'Formato de NCM inválido (ej: 8471.30.12)'),
   codigoPais: z.string()
     .trim()
-    .length(3, 'El código de país debe ser ISO-3 de 3 letras (ej: CHN, USA, BRA)')
-    .toUpperCase(),
+    .regex(/^[a-zA-Z]{3}$/, 'El código de país debe ser ISO-3 de 3 letras (ej: CHN, USA, BRA)')
+    .transform((v) => v.toUpperCase()),
   cantidad: z.coerce.number()
     .int('La cantidad debe ser un número entero')
     .min(1, 'La cantidad mínima es 1 unidad')
@@ -44,13 +45,15 @@ export const SimularOperacionSchema = z.object({
   condicionImportador: z.enum(['REVENTA_RI', 'USO_PROPIO_CONSUMO'])
     .default('REVENTA_RI'),
   usaExcepcion: z.boolean().default(true),
-  tipoCambioBNA: z.coerce.number().positive().default(1420.50),
-  turnstileToken: z.string().optional()
+  tipoCambioBNA: z.coerce.number()
+    .min(100, 'Tipo de cambio BNA fuera de rango válido')
+    .max(100000, 'Tipo de cambio BNA fuera de rango válido')
+    .optional(),
+  turnstileToken: z.string().max(2048).optional()
 });
 
 /**
  * Esquema de Validación para Solicitud de Contacto a Forwarders/Despachantes (PN4)
- * Corrige bug de incompatibilidad entre formatos de Hash ID (IMP-YYYY-XXXXXX e IMP-XXXXXXXX).
  */
 export const SolicitudLeadSchema = z.object({
   operadorId: z.string()
@@ -62,23 +65,25 @@ export const SolicitudLeadSchema = z.object({
   nombreApellido: z.string()
     .trim()
     .min(3, 'El nombre debe tener al menos 3 caracteres')
-    .max(120, 'Nombre demasiado extenso'),
+    .max(120, 'Nombre demasiado extenso')
+    .regex(SIN_CARACTERES_CONTROL, 'Caracteres no válidos en el nombre'),
   empresa: z.string()
     .trim()
     .max(120, 'Nombre de empresa demasiado extenso')
+    .refine((v) => !v || SIN_CARACTERES_CONTROL.test(v), 'Caracteres no válidos en la empresa')
     .optional()
     .nullable(),
   email: z.string()
     .trim()
+    .max(150, 'Correo electrónico demasiado extenso')
     .email('Correo electrónico no válido'),
   telefono: z.string()
     .trim()
-    .min(6, 'Teléfono debe tener al menos 6 dígitos')
-    .max(35, 'Teléfono demasiado extenso'),
+    .regex(/^[0-9+\-\s()]{6,35}$/, 'Teléfono no válido (solo dígitos, espacios, +, - y paréntesis)'),
   comentarios: z.string()
     .trim()
     .max(1000, 'Los comentarios no pueden superar 1000 caracteres')
     .optional()
     .nullable(),
-  turnstileToken: z.string().optional()
+  turnstileToken: z.string().max(2048).optional()
 });

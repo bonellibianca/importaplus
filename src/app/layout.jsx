@@ -1,12 +1,17 @@
 import './globals.css';
 
 export const metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_ORIGIN || 'https://importaplus.com.ar'),
   title: 'IMPORTA +',
   description: 'Calculá el costo total nacionalizado de tu mercadería con aranceles NCM, tributos aduaneros actualizados (Decreto 99/2019, RG 2281), puertos habilitados y forwarders matriculados.',
   keywords: 'calculadora de importacion, costos de importacion argentina, simulador aduanero, aranceles ncm, derechos de importacion die, despachante de aduana, tasa de estadistica aduana, flete internacional argentina, arca dga',
   authors: [{ name: 'Bianca Bonelli | IMPORTA+' }],
   icons: {
-    icon: '/favicon.ico',
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon-192x192.png', sizes: '192x192', type: 'image/png' }
+    ],
     apple: '/apple-touch-icon.png'
   },
   openGraph: {
@@ -15,7 +20,21 @@ export const metadata = {
     url: 'https://importaplus.com.ar',
     siteName: 'IMPORTA+',
     locale: 'es_AR',
-    type: 'website'
+    type: 'website',
+    images: [
+      {
+        url: '/FONDO%20PANTALLA.jpg',
+        width: 1600,
+        height: 524,
+        alt: 'IMPORTA+ - Simulador de Costos de Importación'
+      }
+    ]
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'IMPORTA+ | Simulador Oficial de Importación Argentina',
+    description: 'Simulador oficial de costos aduaneros y tributos ARCA / DGA.',
+    images: ['/FONDO%20PANTALLA.jpg']
   }
 };
 

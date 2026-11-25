@@ -337,7 +337,7 @@ class FormularioState extends VistaState {
 
     const ejecutarBusquedaProducto = async (texto) => {
       if (!dropdownNcm) return;
-      const cleanVal = String(texto || '').replace(/[0-9]/g, ' ').trim();
+      const cleanVal = String(texto || '').trim();
       if (cleanVal.length >= 2) {
         const res = await ctrl.posicionBLL.buscarPosiciones(cleanVal, 10);
         if (res && res.length > 0) {

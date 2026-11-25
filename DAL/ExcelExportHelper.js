@@ -5,8 +5,16 @@
  * - Columnas amplias y bordes finos para evitar texto pegado.
  */
 (function (root) {
+  function sanitizeFormulaText(val) {
+    const str = String(val ?? '');
+    if (/^[=+\-@\t\r]/.test(str) && !/^-[0-9]+(?:\.[0-9]+)?$/.test(str)) {
+      return `'${str}`;
+    }
+    return str;
+  }
+
   function escapeXml(str) {
-    return String(str ?? '')
+    return sanitizeFormulaText(str)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
@@ -308,10 +316,11 @@
       { name: 'xl/worksheets/sheet1.xml', content: buildWorksheetXml(rows) }
     ]);
 
+    const safeDownloadId = String(idCotizacion || 'IMP-2026').replace(/[^a-zA-Z0-9_-]/g, '');
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Comprobante_ImportaPlus_${idCotizacion}.xlsx`;
+    a.download = `Comprobante_ImportaPlus_${safeDownloadId || 'IMP'}.xlsx`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

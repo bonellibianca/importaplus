@@ -11,19 +11,18 @@ import {
 
 /**
  * Motor Nativo de Persistencia en Excel (.xlsx OpenXML & .csv) - Server-Side
- * Reemplaza por completo el uso de bases de datos SQL (Supabase / PostgreSQL),
- * operando directamente sobre los libros de Excel del proyecto:
- *  - DAL/database/ImportaPlus_ExcelDB.xlsx
- *  - Cliente/Nomenclatura_NCM_aranceles.xlsx (10.437 posiciones oficiales)
- *  - Cliente/IMPORTA_PLUS_NOMENCLADOR_COMPLETO_22092026.csv
- *  - DAL/database/*.csv (planillas vinculadas para lectura/escritura instantánea en Excel)
+ * Opera sin dependencias binarias externas, con protección anti-ZIP-Bomb y anti-CSV-Injection.
  */
 
-const ROOT_DIR = process.cwd();
-const EXCEL_DB_PATH = path.join(ROOT_DIR, process.env.EXCEL_DB_PATH || 'DAL/database/ImportaPlus_ExcelDB.xlsx');
-const EXCEL_NCM_OFICIAL_PATH = path.join(ROOT_DIR, process.env.EXCEL_NCM_PATH || 'DAL/database/Nomenclatura_NCM_aranceles.xlsx');
-const CSV_CURATED_NCM_PATH = path.join(ROOT_DIR, 'DAL/database/ncm_catalogo.csv');
-const DB_FOLDER = path.join(ROOT_DIR, 'DAL/database');
+const DB_FOLDER = path.join(process.cwd(), 'DAL', 'database');
+const EXCEL_DB_FILE = path.basename(process.env.EXCEL_DB_PATH || 'ImportaPlus_ExcelDB.xlsx');
+const EXCEL_NCM_FILE = path.basename(process.env.EXCEL_NCM_PATH || 'Nomenclatura_NCM_aranceles.xlsx');
+const EXCEL_DB_PATH = path.join(DB_FOLDER, EXCEL_DB_FILE);
+const EXCEL_NCM_OFICIAL_PATH = path.join(DB_FOLDER, EXCEL_NCM_FILE);
+const CSV_CURATED_NCM_PATH = path.join(DB_FOLDER, 'ncm_catalogo.csv');
+
+const MAX_ZIP_ENTRIES = 2000;
+const MAX_INFLATE_BYTES = 64 * 1024 * 1024; // 64 MB límite anti-ZIP-Bomb
 
 let cachedCatalogoNcm = null;
 let cachedPaises = null;
@@ -32,12 +31,29 @@ let cachedOperadores = null;
 let lastNcmLoadTime = 0;
 
 /**
- * Lector ligero de archivos ZIP (.xlsx OpenXML) en Node.js puro usando zlib
- * No requiere binarios externos y funciona incluso sin node_modules instalados.
+ * Neutraliza vectores de CSV / Spreadsheet Formula Injection (OWASP) en textos de usuario.
+ * Respeta números negativos legítimos (ej: -34.5985) y escapa prefijos ejecutables (=, +, -, @, \t, \r).
+ */
+export function sanitizeSpreadsheetCell(val) {
+  if (val === null || val === undefined) return '';
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+
+  const str = String(val).replace(/\r?\n/g, ' ');
+  if (str.length === 0) return '';
+
+  if (/^[=+\-@\t\r]/.test(str) && !/^-[0-9]+(?:\.[0-9]+)?$/.test(str)) {
+    return `'${str}`;
+  }
+  return str;
+}
+
+/**
+ * Lector ligero de archivos ZIP (.xlsx OpenXML) en Node.js puro usando zlib con límites de memoria.
  */
 function extractZipEntries(buffer) {
   const entries = new Map();
-  // Buscar End of Central Directory (EOCD) signature 0x06054b50
+  if (!Buffer.isBuffer(buffer) || buffer.length < 22) return entries;
+
   let eocdOffset = -1;
   for (let i = buffer.length - 22; i >= Math.max(0, buffer.length - 65557); i--) {
     if (buffer.readUInt32LE(i) === 0x06054b50) {
@@ -47,7 +63,7 @@ function extractZipEntries(buffer) {
   }
   if (eocdOffset === -1) return entries;
 
-  const totalEntries = buffer.readUInt16LE(eocdOffset + 10);
+  const totalEntries = Math.min(buffer.readUInt16LE(eocdOffset + 10), MAX_ZIP_ENTRIES);
   let cdOffset = buffer.readUInt32LE(eocdOffset + 16);
 
   for (let i = 0; i < totalEntries; i++) {
@@ -59,6 +75,7 @@ function extractZipEntries(buffer) {
     const commentLength = buffer.readUInt16LE(cdOffset + 32);
     const localHeaderOffset = buffer.readUInt32LE(cdOffset + 42);
 
+    if (cdOffset + 46 + fileNameLength > buffer.length) break;
     const fileName = buffer.toString('utf8', cdOffset + 46, cdOffset + 46 + fileNameLength);
     cdOffset += 46 + fileNameLength + extraLength + commentLength;
 
@@ -66,16 +83,21 @@ function extractZipEntries(buffer) {
     const localNameLen = buffer.readUInt16LE(localHeaderOffset + 26);
     const localExtraLen = buffer.readUInt16LE(localHeaderOffset + 28);
     const dataStart = localHeaderOffset + 30 + localNameLen + localExtraLen;
+
+    if (dataStart < 0 || compressedSize > MAX_INFLATE_BYTES || dataStart + compressedSize > buffer.length) {
+      continue;
+    }
+
     const compressedData = buffer.subarray(dataStart, dataStart + compressedSize);
 
     try {
       if (compressionMethod === 0) {
         entries.set(fileName, compressedData.toString('utf8'));
       } else if (compressionMethod === 8) {
-        entries.set(fileName, zlib.inflateRawSync(compressedData).toString('utf8'));
+        entries.set(fileName, zlib.inflateRawSync(compressedData, { maxOutputLength: MAX_INFLATE_BYTES }).toString('utf8'));
       }
-    } catch (e) {
-      // Ignorar entrada corrupta
+    } catch {
+      // Ignorar entrada corrupta o que supere el límite de descompresión
     }
   }
   return entries;
@@ -171,10 +193,7 @@ function parseWorksheetXml(sheetXml, sharedStrings = []) {
   return rows;
 }
 
-/**
- * Parsea un archivo CSV compatible con Excel (soporta delimitador ';' o ',')
- */
-function parseCsvFile(filePath) {
+export function parseCsvFile(filePath) {
   if (!fs.existsSync(filePath)) return [];
   const raw = fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '');
   const lines = raw.split(/\r?\n/).filter((l) => l.trim().length > 0);
@@ -220,13 +239,12 @@ function splitCsvLine(line, delimiter = ';') {
   return result;
 }
 
-function formatCsvCell(val) {
-  if (val === null || val === undefined) return '';
-  const str = String(val).replace(/\r?\n/g, ' ');
-  if (str.includes(';') || str.includes('"')) {
-    return `"${str.replace(/"/g, '""')}"`;
+export function formatCsvCell(val) {
+  const safeStr = sanitizeSpreadsheetCell(val);
+  if (safeStr.includes(';') || safeStr.includes('"')) {
+    return `"${safeStr.replace(/"/g, '""')}"`;
   }
-  return str;
+  return safeStr;
 }
 
 function appendCsvRow(filePath, headers, rowObject) {
@@ -240,7 +258,6 @@ function appendCsvRow(filePath, headers, rowObject) {
     const line = headers.map((h) => formatCsvCell(rowObject[h])).join(';') + '\r\n';
     content += line;
     fs.appendFileSync(filePath, content, 'utf8');
-    syncExcelWorkbookWithSheet(filePath, headers);
     return true;
   } catch (err) {
     console.warn('[ExcelClient_CSV_WRITE_WARNING]:', err.message);
@@ -249,41 +266,9 @@ function appendCsvRow(filePath, headers, rowObject) {
 }
 
 /**
- * Si la librería 'xlsx' (SheetJS) está instalada en node_modules, sincroniza también
- * la hoja correspondiente dentro del libro binario ImportaPlus_ExcelDB.xlsx.
- */
-function syncExcelWorkbookWithSheet(csvFilePath, headers) {
-  try {
-    // Carga dinámica opcional de SheetJS cuando node_modules está instalado
-    const req = eval('require');
-    const XLSX = req('xlsx');
-    if (!XLSX || !fs.existsSync(EXCEL_DB_PATH)) return;
-
-    const sheetName = csvFilePath.endsWith('simulaciones.csv')
-      ? 'Simulaciones'
-      : csvFilePath.endsWith('solicitudes_contacto.csv')
-        ? 'Solicitudes_Contacto'
-        : null;
-    if (!sheetName) return;
-
-    const rows = parseCsvFile(csvFilePath);
-    const aoa = [headers, ...rows.map((r) => headers.map((h) => r[h] ?? ''))];
-    const wb = XLSX.readFile(EXCEL_DB_PATH);
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    wb.Sheets[sheetName] = ws;
-    if (!wb.SheetNames.includes(sheetName)) {
-      wb.SheetNames.push(sheetName);
-    }
-    XLSX.writeFile(wb, EXCEL_DB_PATH);
-  } catch (e) {
-    // En entornos sin node_modules instalados aún, la persistencia queda asegurada en la planilla CSV de Excel y se sincroniza con seed_excel.py
-  }
-}
-
-/**
- * Carga y unifica el catálogo NCM desde los archivos Excel oficiales:
- * 1. Cliente/IMPORTA_PLUS_NOMENCLADOR_COMPLETO_22092026.csv (y DAL/database/ncm_catalogo.csv)
- * 2. Cliente/Nomenclatura_NCM_aranceles.xlsx (10.437 posiciones oficiales Decreto 557/2023)
+ * Carga y unifica el catálogo NCM desde los archivos Excel/CSV oficiales:
+ * 1. DAL/database/ncm_catalogo.csv
+ * 2. DAL/database/Nomenclatura_NCM_aranceles.xlsx (10.437 posiciones oficiales Decreto 557/2023)
  */
 export function cargarCatalogoNcmExcel() {
   const now = Date.now();
@@ -293,7 +278,6 @@ export function cargarCatalogoNcmExcel() {
 
   const mapByCode = new Map();
 
-  // 1. Cargar posiciones curadas desde CSV / Excel DB
   const csvPath = fs.existsSync(path.join(DB_FOLDER, 'ncm_catalogo.csv'))
     ? path.join(DB_FOLDER, 'ncm_catalogo.csv')
     : CSV_CURATED_NCM_PATH;
@@ -326,14 +310,13 @@ export function cargarCatalogoNcmExcel() {
           ? parseFloat(r.iva_alicuota)
           : (tipoBien === 'BK' || tipoBien === 'BIT' ? 10.5 : 21.0),
         anexo_excepcion: anexo || null,
-        arancel_excepcion: anexo && arancelExNum !== null ? arancelExNum : null,
+        arancel_excepcion: anexo && arancelExNum !== null && !Number.isNaN(arancelExNum) ? arancelExNum : null,
         condicion_excepcion: r.condicion_excepcion || r.condicion || null,
         esDestacado: true
       });
     }
   }
 
-  // 2. Cargar las 10.437 posiciones oficiales desde Cliente/Nomenclatura_NCM_aranceles.xlsx
   if (fs.existsSync(EXCEL_NCM_OFICIAL_PATH)) {
     try {
       const buf = fs.readFileSync(EXCEL_NCM_OFICIAL_PATH);
@@ -364,7 +347,7 @@ export function cargarCatalogoNcmExcel() {
           aec,
           iva_alicuota: tipoBien === 'BK' || tipoBien === 'BIT' ? 10.5 : 21.0,
           anexo_excepcion: anexoRaw ? `Decreto 557/2023 - Anexo ${anexoRaw}` : null,
-          arancel_excepcion: anexoRaw && arancelAplicable !== null ? arancelAplicable : null,
+          arancel_excepcion: anexoRaw && arancelAplicable !== null && !Number.isNaN(arancelAplicable) ? arancelAplicable : null,
           condicion_excepcion: condicion,
           esDestacado: false
         });
@@ -374,7 +357,6 @@ export function cargarCatalogoNcmExcel() {
     }
   }
 
-  // 3. Asegurar fallback mínimo si no hubiera archivos en disco
   if (mapByCode.size === 0) {
     for (const item of FALLBACK_NCM) {
       mapByCode.set(item.codigo_ncm, { ...item, esDestacado: true });
@@ -462,8 +444,7 @@ let cachedCotizacionDolar = null;
 let lastCotizacionFetchTime = 0;
 
 /**
- * Obtiene la cotización oficial vendedor del Banco Nación (ARS/USD).
- * Conecta en tiempo real con la API (dolarapi.com) y utiliza la planilla Excel como respaldo.
+ * Obtiene la cotización oficial vendedor del Banco Nación (ARS/USD) con timeout estricto y respaldo local.
  */
 export async function obtenerCotizacionDolarOficial() {
   const now = Date.now();
@@ -471,19 +452,27 @@ export async function obtenerCotizacionDolarOficial() {
     return cachedCotizacionDolar;
   }
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3500);
+
   try {
-    const res = await fetch('https://dolarapi.com/v1/dolares/oficial', { cache: 'no-store' });
+    const res = await fetch('https://dolarapi.com/v1/dolares/oficial', {
+      cache: 'no-store',
+      signal: controller.signal
+    });
     if (res.ok) {
       const data = await res.json();
       const venta = parseFloat(data.venta || data.value_sell);
-      if (venta && !isNaN(venta) && venta > 0) {
+      if (venta && !Number.isNaN(venta) && venta > 50 && venta < 100000) {
         cachedCotizacionDolar = venta;
         lastCotizacionFetchTime = now;
         return cachedCotizacionDolar;
       }
     }
   } catch (err) {
-    console.warn('API Dólar no disponible en servidor. Utilizando respaldo de planilla Excel:', err.message);
+    console.warn('API Dólar no disponible en servidor. Utilizando respaldo local:', err.message);
+  } finally {
+    clearTimeout(timer);
   }
 
   try {
@@ -496,7 +485,7 @@ export async function obtenerCotizacionDolarOficial() {
         return cachedCotizacionDolar;
       }
     }
-  } catch (err) { }
+  } catch {}
 
   return 1420.50;
 }

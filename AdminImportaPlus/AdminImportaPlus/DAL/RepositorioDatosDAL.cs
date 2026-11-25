@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -18,10 +19,12 @@ namespace AdminImportaPlus.DAL;
 
 /// <summary>
 /// Capa DAL (.NET 9): Persistencia Dual sobre Supabase PostgreSQL + Supabase Storage (HTTPS REST API)
-/// con espejo local automático hacia la carpeta de la Web para pruebas offline y ahorro de cuota FREE.
+/// con cifrado DPAPI para credenciales sensibles en reposo y espejo local consistente libre de falsos saltos DVH/DVV.
 /// </summary>
 public sealed class RepositorioDatosDAL
 {
+    private const string DpapiPrefix = "dpapi:";
+    private static readonly Encoding Utf8SinBom = new UTF8Encoding(false);
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(45) };
 
     private static readonly JsonSerializerOptions JsonOpts = new()
@@ -52,16 +55,46 @@ public sealed class RepositorioDatosDAL
         Config = CargarConfiguracion();
     }
 
+    private static string ProtegerSecretoDpapi(string textoPlano)
+    {
+        if (string.IsNullOrWhiteSpace(textoPlano)) return string.Empty;
+        if (textoPlano.StartsWith(DpapiPrefix, StringComparison.Ordinal)) return textoPlano;
+        try
+        {
+            byte[] plainBytes = Encoding.UTF8.GetBytes(textoPlano);
+            byte[] cipherBytes = ProtectedData.Protect(plainBytes, null, DataProtectionScope.CurrentUser);
+            return DpapiPrefix + Convert.ToBase64String(cipherBytes);
+        }
+        catch
+        {
+            return textoPlano;
+        }
+    }
+
+    private static string DesprotegerSecretoDpapi(string valorAlmacenado)
+    {
+        if (string.IsNullOrWhiteSpace(valorAlmacenado)) return string.Empty;
+        if (!valorAlmacenado.StartsWith(DpapiPrefix, StringComparison.Ordinal)) return valorAlmacenado;
+        try
+        {
+            byte[] cipherBytes = Convert.FromBase64String(valorAlmacenado[DpapiPrefix.Length..]);
+            byte[] plainBytes = ProtectedData.Unprotect(cipherBytes, null, DataProtectionScope.CurrentUser);
+            return Encoding.UTF8.GetString(plainBytes);
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
     private string ResolverCarpetaDatosProyecto()
     {
-        // Buscar la raíz del proyecto AdminImportaPlus o BB para persistir fuera de bin/Debug si existe
         var dir = new DirectoryInfo(AppBaseDir);
         while (dir != null)
         {
             if (File.Exists(Path.Combine(dir.FullName, "Base_ImportaPlus.sql")))
             {
-                string adminFolder = Path.Combine(dir.FullName, "AdminImportaPlus", "Data");
-                return adminFolder;
+                return Path.Combine(dir.FullName, "AdminImportaPlus", "Data");
             }
             dir = dir.Parent;
         }
@@ -89,11 +122,24 @@ public sealed class RepositorioDatosDAL
     public SupabaseConfigBE CargarConfiguracion()
     {
         SupabaseConfigBE cfg = new();
+        bool migrarTextoPlanoADpapi = false;
+
         if (File.Exists(ConfigFilePath))
         {
             try
             {
                 cfg = JsonSerializer.Deserialize<SupabaseConfigBE>(File.ReadAllText(ConfigFilePath, Encoding.UTF8), JsonOpts) ?? new();
+                if (!string.IsNullOrWhiteSpace(cfg.ServiceRoleKey))
+                {
+                    if (cfg.ServiceRoleKey.StartsWith(DpapiPrefix, StringComparison.Ordinal))
+                    {
+                        cfg.ServiceRoleKey = DesprotegerSecretoDpapi(cfg.ServiceRoleKey);
+                    }
+                    else
+                    {
+                        migrarTextoPlanoADpapi = true;
+                    }
+                }
             }
             catch { }
         }
@@ -112,7 +158,6 @@ public sealed class RepositorioDatosDAL
             }
         }
 
-        // Autodetectar credenciales desde .env.local de la Web si aún no se cargaron en el .exe
         if (!cfg.EstaConfiguradoEnNube && !string.IsNullOrWhiteSpace(cfg.WebWorkspacePath))
         {
             string envLocal = Path.Combine(cfg.WebWorkspacePath, ".env.local");
@@ -134,7 +179,28 @@ public sealed class RepositorioDatosDAL
             }
         }
 
+        if (migrarTextoPlanoADpapi && !string.IsNullOrWhiteSpace(cfg.ServiceRoleKey))
+        {
+            PersistirConfigCifradaEnDisco(cfg);
+        }
+
         return cfg;
+    }
+
+    private void PersistirConfigCifradaEnDisco(SupabaseConfigBE cfgEnMemoria)
+    {
+        try
+        {
+            var discoDto = new SupabaseConfigBE
+            {
+                SupabaseUrl = cfgEnMemoria.SupabaseUrl,
+                ServiceRoleKey = ProtegerSecretoDpapi(cfgEnMemoria.ServiceRoleKey),
+                AnonKey = cfgEnMemoria.AnonKey,
+                WebWorkspacePath = cfgEnMemoria.WebWorkspacePath
+            };
+            File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(discoDto, JsonOpts), Encoding.UTF8);
+        }
+        catch { }
     }
 
     public void GuardarConfiguracion(SupabaseConfigBE nuevaConfig)
@@ -143,9 +209,8 @@ public sealed class RepositorioDatosDAL
         nuevaConfig.ServiceRoleKey = (nuevaConfig.ServiceRoleKey ?? string.Empty).Trim();
         nuevaConfig.AnonKey = (nuevaConfig.AnonKey ?? string.Empty).Trim();
         Config = nuevaConfig;
-        File.WriteAllText(ConfigFilePath, JsonSerializer.Serialize(Config, JsonOpts), Encoding.UTF8);
+        PersistirConfigCifradaEnDisco(Config);
 
-        // Si existe la carpeta Web y las claves son reales, sincronizar .env.local automáticamente
         string webRoot = ResolverRutaWebWorkspace();
         if (!string.IsNullOrWhiteSpace(webRoot) && Config.EstaConfiguradoEnNube)
         {
@@ -170,10 +235,25 @@ public sealed class RepositorioDatosDAL
         catch { }
     }
 
-    /// <summary>
-    /// Obtiene el estado actual completo de la base de datos (desde Supabase Cloud si está configurado,
-    /// o desde el almacén persistente local inicializado con Admin/1234 y los 4 Forwarders).
-    /// </summary>
+    public async Task RegistrarUltimoAccesoLocalAsync(string username, DateTimeOffset timestamp)
+    {
+        if (!File.Exists(LocalDbFilePath)) return;
+        try
+        {
+            var local = JsonSerializer.Deserialize<BaseDatosCompletaBE>(
+                await File.ReadAllTextAsync(LocalDbFilePath, Encoding.UTF8), JsonOpts);
+            if (local == null) return;
+            var u = local.AdminUsuarios.FirstOrDefault(a =>
+                string.Equals(a.Username.Trim(), username.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (u != null)
+            {
+                u.UltimoAcceso = timestamp;
+                await File.WriteAllTextAsync(LocalDbFilePath, JsonSerializer.Serialize(local, JsonOpts), Encoding.UTF8);
+            }
+        }
+        catch { }
+    }
+
     public async Task<BaseDatosCompletaBE> ObtenerBaseDatosActualAsync()
     {
         if (Config.EstaConfiguradoEnNube)
@@ -203,6 +283,26 @@ public sealed class RepositorioDatosDAL
         var semilla = CrearSemillaInicial();
         await GuardarBaseDatosCompletaAsync(semilla, sincronizarNube: Config.EstaConfiguradoEnNube);
         return semilla;
+    }
+
+    /// <summary>
+    /// Carga la base de datos íntegra (incluyendo Países y NCM desde Supabase si está en nube) para generar Backups completos.
+    /// </summary>
+    public async Task<BaseDatosCompletaBE> ObtenerBaseDatosCompletaParaBackupAsync()
+    {
+        var db = await ObtenerBaseDatosActualAsync();
+        if (Config.EstaConfiguradoEnNube && (db.Paises.Count == 0 || db.NcmCatalogo.Count == 0))
+        {
+            try
+            {
+                var paisesRemotos = await GetTablaSupabaseAsync<PaisBE>("/rest/v1/paises?select=*&order=codigo_iso.asc");
+                var ncmRemotos = await GetTablaSupabaseAsync<NcmPosicionBE>("/rest/v1/ncm_catalogo?select=*&order=codigo_ncm.asc");
+                if (paisesRemotos != null && paisesRemotos.Count > 0) db.Paises = paisesRemotos;
+                if (ncmRemotos != null && ncmRemotos.Count > 0) db.NcmCatalogo = ncmRemotos;
+            }
+            catch { }
+        }
+        return db;
     }
 
     public BaseDatosCompletaBE CrearSemillaInicial()
@@ -368,9 +468,90 @@ public sealed class RepositorioDatosDAL
         return await SincronizarHaciaSupabaseAsync(db, reemplazarTablasEnRestore);
     }
 
+    /// <summary>
+    /// Persiste el espejo local evitando sobrescribir Países/NCM vacíos cuando se opera en modo conteo remoto,
+    /// manteniendo la consistencia matemática DVH/DVV offline y sincronizando tanto Forwarders como Puertos hacia la Web.
+    /// </summary>
     private void GuardarEspejoLocalYSincronizarWeb(BaseDatosCompletaBE db)
     {
-        File.WriteAllText(LocalDbFilePath, JsonSerializer.Serialize(db, JsonOpts), Encoding.UTF8);
+        BaseDatosCompletaBE paraDisco = db;
+
+        if ((db.TotalPaisesEnNube.HasValue && db.Paises.Count == 0) ||
+            (db.TotalNcmEnNube.HasValue && db.NcmCatalogo.Count == 0))
+        {
+            BaseDatosCompletaBE? previo = null;
+            if (File.Exists(LocalDbFilePath))
+            {
+                try
+                {
+                    previo = JsonSerializer.Deserialize<BaseDatosCompletaBE>(File.ReadAllText(LocalDbFilePath, Encoding.UTF8), JsonOpts);
+                }
+                catch { }
+            }
+            var semillaRespaldo = previo != null && previo.Paises.Count > 0 && previo.NcmCatalogo.Count > 0
+                ? previo
+                : CrearSemillaInicial();
+
+            paraDisco = new BaseDatosCompletaBE
+            {
+                AdminUsuarios = db.AdminUsuarios,
+                Forwarders = db.Forwarders,
+                PuertosAduanas = db.PuertosAduanas,
+                Paises = db.Paises.Count > 0 ? db.Paises : semillaRespaldo.Paises,
+                NcmCatalogo = db.NcmCatalogo.Count > 0 ? db.NcmCatalogo : semillaRespaldo.NcmCatalogo,
+                DigitosVerificadores = db.DigitosVerificadores
+                    .Where(d => !string.Equals(d.TablaNombre, "paises", StringComparison.OrdinalIgnoreCase) &&
+                                !string.Equals(d.TablaNombre, "ncm_catalogo", StringComparison.OrdinalIgnoreCase))
+                    .ToList()
+            };
+
+            foreach (var p in paraDisco.Paises) p.Dvh = SeguridadYDigitoVerificadorBLL.CalcularDvhPais(p);
+            foreach (var n in paraDisco.NcmCatalogo) n.Dvh = SeguridadYDigitoVerificadorBLL.CalcularDvhNcm(n);
+
+            var ahora = DateTimeOffset.UtcNow;
+            paraDisco.DigitosVerificadores.Add(new DigitoVerificadorBE
+            {
+                TablaNombre = "paises",
+                Dvv = SeguridadYDigitoVerificadorBLL.CalcularDvvDesdeDvhs(paraDisco.Paises.Select(x => x.Dvh)),
+                CantidadRegistros = paraDisco.Paises.Count,
+                UpdatedAt = ahora,
+                UpdatedBy = "LOCAL_MIRROR",
+                SnapshotControl = paraDisco.Paises.OrderBy(x => x.CodigoIso).Select(p => new SnapshotFilaBE
+                {
+                    Pk = p.CodigoIso.ToUpperInvariant(),
+                    Dvh = p.Dvh,
+                    Campos = new Dictionary<string, object?>
+                    {
+                        ["nombre"] = p.Nombre,
+                        ["es_mercosur"] = p.EsMercosur.ToString().ToLowerInvariant(),
+                        ["flete_estimado_pct"] = p.FleteEstimadoPct.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
+                    }
+                }).ToList()
+            });
+
+            paraDisco.DigitosVerificadores.Add(new DigitoVerificadorBE
+            {
+                TablaNombre = "ncm_catalogo",
+                Dvv = SeguridadYDigitoVerificadorBLL.CalcularDvvDesdeDvhs(paraDisco.NcmCatalogo.Select(x => x.Dvh)),
+                CantidadRegistros = paraDisco.NcmCatalogo.Count,
+                UpdatedAt = ahora,
+                UpdatedBy = "LOCAL_MIRROR",
+                SnapshotControl = paraDisco.NcmCatalogo.OrderBy(x => x.CodigoNcm).Select(n => new SnapshotFilaBE
+                {
+                    Pk = n.CodigoNcm,
+                    Dvh = n.Dvh,
+                    Campos = new Dictionary<string, object?>
+                    {
+                        ["descripcion"] = n.Descripcion.Length > 80 ? n.Descripcion[..80] : n.Descripcion,
+                        ["tipo_bien"] = n.TipoBien,
+                        ["aec"] = n.Aec.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+                        ["iva_alicuota"] = n.IvaAlicuota.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
+                    }
+                }).ToList()
+            });
+        }
+
+        File.WriteAllText(LocalDbFilePath, JsonSerializer.Serialize(paraDisco, JsonOpts), Encoding.UTF8);
 
         string webRoot = ResolverRutaWebWorkspace();
         if (string.IsNullOrWhiteSpace(webRoot)) return;
@@ -396,12 +577,27 @@ public sealed class RepositorioDatosDAL
                         orden = f.Orden,
                         activo = f.Activo
                     })
+                    .ToList(),
+                puertos = db.PuertosAduanas
+                    .OrderBy(p => p.Nombre)
+                    .Select(p => new
+                    {
+                        id = p.Id.ToString(),
+                        nombre = p.Nombre,
+                        via_ingreso = p.ViaIngreso,
+                        provincia = p.Provincia,
+                        codigo_sim = p.CodigoSim,
+                        operador = p.Operador,
+                        infraestructura = p.Infraestructura,
+                        latitud = p.Latitud ?? 0m,
+                        longitud = p.Longitud ?? 0m
+                    })
                     .ToList()
             };
 
             string jsonSync = JsonSerializer.Serialize(payloadWeb, JsonOpts);
-            File.WriteAllText(Path.Combine(dalDbFolder, "web_sync.json"), jsonSync, Encoding.UTF8);
-            File.WriteAllText(Path.Combine(dalDbFolder, "web_sync.js"), $"window.__IMPORTA_ADMIN_SYNC__ = {jsonSync};\r\n", Encoding.UTF8);
+            File.WriteAllText(Path.Combine(dalDbFolder, "web_sync.json"), jsonSync, Utf8SinBom);
+            File.WriteAllText(Path.Combine(dalDbFolder, "web_sync.js"), $"window.__IMPORTA_ADMIN_SYNC__ = {jsonSync};\r\n", Utf8SinBom);
         }
         catch { }
     }
@@ -525,7 +721,6 @@ public sealed class RepositorioDatosDAL
             var fwdsTask = GetTablaSupabaseAsync<ForwarderBE>("/rest/v1/forwarders?select=*&order=orden.asc");
             var puertosTask = GetTablaSupabaseAsync<PuertoAduanaBE>("/rest/v1/puertos_aduanas?select=*&order=nombre.asc");
 
-            // Leer DVV con snapshot solo para tablas administrables en desktop y metadata liviana para paises/ncm_catalogo (10.439 filas)
             var dvvConSnapTask = GetTablaSupabaseAsync<DigitoVerificadorBE>(
                 "/rest/v1/digito_verificador?select=*&tabla_nombre=in.(admin_usuarios,forwarders,puertos_aduanas)");
             var dvvLivianoTask = GetTablaSupabaseAsync<DigitoVerificadorBE>(
@@ -580,7 +775,6 @@ public sealed class RepositorioDatosDAL
             if (db.Paises.Count > 0) await UpsertSupabaseAsync("paises?on_conflict=codigo_iso", db.Paises);
             if (db.NcmCatalogo.Count > 0) await UpsertSupabaseAsync("ncm_catalogo?on_conflict=codigo_ncm", db.NcmCatalogo);
 
-            // Actualizar DVH/DVV en PostgreSQL para incluir también los 196 países y 10.439 NCM
             var rpcRes = await RecalcularDigitosEnSupabaseRpcAsync("ADMIN_EXE");
             if (!rpcRes.Ok)
             {
@@ -623,11 +817,6 @@ public sealed class RepositorioDatosDAL
         }
     }
 
-    /// <summary>
-    /// Optimiza la imagen seleccionada por el Admin (recorte cuadrado máx 480x480 JPEG ~35 KB)
-    /// para cuidar la cuota de Supabase FREE, subiéndola al Bucket 'forwarders' si está en nube
-    /// o generando URL pública local / Data URI compacta.
-    /// </summary>
     public async Task<string> ProcesarYSubirImagenForwarderAsync(string rutaImagenOrigen, Guid forwarderId)
     {
         byte[] jpegOptimizado = OptimizarImagenCuadradaJpeg(rutaImagenOrigen, 480, 82L);
@@ -652,7 +841,6 @@ public sealed class RepositorioDatosDAL
             catch { }
         }
 
-        // Guardar también en public/uploads/forwarders del proyecto Web si existe y retornar Data URI compacta (< 40 KB)
         string webRoot = ResolverRutaWebWorkspace();
         if (!string.IsNullOrWhiteSpace(webRoot))
         {
