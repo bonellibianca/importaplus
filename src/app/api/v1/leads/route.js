@@ -4,14 +4,13 @@ import { SolicitudLeadSchema } from '@/server/security/schemas';
 import { verifyTurnstileToken } from '@/server/security/turnstileVerifier';
 import { LeadContactoBLL } from '@/server/bll/LeadContactoBLL';
 
-export const runtime = 'nodejs'; // Fuerza ejecución en Node.js puro dentro de Vercel
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
   const forwardedFor = request.headers.get('x-forwarded-for');
   const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : '127.0.0.1';
 
-  // Rate Limiting anti-spam: Máximo 4 solicitudes de contacto por hora por IP
   const rateStatus = checkRateLimit(ip, 'leads_endpoint', 4, 60 * 60 * 1000);
   if (!rateStatus.allowed) {
     return NextResponse.json(
@@ -31,14 +30,12 @@ export async function POST(request) {
       );
     }
 
-    if (validacion.data.turnstileToken) {
-      const turnstileCheck = await verifyTurnstileToken(validacion.data.turnstileToken, ip);
-      if (!turnstileCheck.success) {
-        return NextResponse.json(
-          { error: 'Validación anti-bot requerida.' },
-          { status: 403 }
-        );
-      }
+    const turnstileCheck = await verifyTurnstileToken(validacion.data.turnstileToken, ip);
+    if (!turnstileCheck.success) {
+      return NextResponse.json(
+        { error: 'Validación anti-bot requerida.' },
+        { status: 403 }
+      );
     }
 
     const resultado = await LeadContactoBLL.registrarSolicitud(validacion.data);

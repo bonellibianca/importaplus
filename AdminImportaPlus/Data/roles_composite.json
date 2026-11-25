@@ -1,0 +1,117 @@
+﻿{
+  "Permisos": [
+    {
+      "Id": "10000001-0000-0000-0000-000000000001",
+      "Codigo": "FWD_VER",
+      "Nombre": "Ver Forwarders"
+    },
+    {
+      "Id": "10000001-0000-0000-0000-000000000002",
+      "Codigo": "FWD_ALTA",
+      "Nombre": "Alta de Forwarders"
+    },
+    {
+      "Id": "10000001-0000-0000-0000-000000000003",
+      "Codigo": "FWD_MODIFICAR",
+      "Nombre": "Modificar Forwarders"
+    },
+    {
+      "Id": "10000001-0000-0000-0000-000000000004",
+      "Codigo": "FWD_BAJA",
+      "Nombre": "Eliminar Forwarders"
+    },
+    {
+      "Id": "10000001-0000-0000-0000-000000000005",
+      "Codigo": "PTO_ABM",
+      "Nombre": "ABM Puertos y Aduanas"
+    },
+    {
+      "Id": "10000001-0000-0000-0000-000000000006",
+      "Codigo": "DV_VER",
+      "Nombre": "Auditar Dígito Verificador"
+    },
+    {
+      "Id": "10000001-0000-0000-0000-000000000007",
+      "Codigo": "DV_RECALCULAR",
+      "Nombre": "Recalcular Dígito Verificador"
+    },
+    {
+      "Id": "10000001-0000-0000-0000-000000000008",
+      "Codigo": "BACKUP_CREAR",
+      "Nombre": "Generar Backup"
+    },
+    {
+      "Id": "10000001-0000-0000-0000-000000000009",
+      "Codigo": "BACKUP_RESTAURAR",
+      "Nombre": "Ejecutar RestoreBackup"
+    },
+    {
+      "Id": "10000001-0000-0000-0000-000000000010",
+      "Codigo": "SUPA_CONFIG",
+      "Nombre": "Configurar Supabase Cloud"
+    },
+    {
+      "Id": "10000001-0000-0000-0000-000000000011",
+      "Codigo": "ROLES_GESTION",
+      "Nombre": "Gestionar Roles y Perfiles"
+    }
+  ],
+  "Familias": [
+    {
+      "Id": "20000001-0000-0000-0000-000000000001",
+      "Codigo": "FAM_FORWARDERS",
+      "Nombre": "Gestión de Forwarders",
+      "HijosIds": [
+        "10000001-0000-0000-0000-000000000001",
+        "10000001-0000-0000-0000-000000000002",
+        "10000001-0000-0000-0000-000000000003",
+        "10000001-0000-0000-0000-000000000004"
+      ]
+    },
+    {
+      "Id": "20000001-0000-0000-0000-000000000002",
+      "Codigo": "FAM_SEGURIDAD",
+      "Nombre": "Seguridad e Integridad DV",
+      "HijosIds": [
+        "10000001-0000-0000-0000-000000000006",
+        "10000001-0000-0000-0000-000000000007",
+        "10000001-0000-0000-0000-000000000011"
+      ]
+    },
+    {
+      "Id": "20000001-0000-0000-0000-000000000003",
+      "Codigo": "FAM_BACKUP_NUBE",
+      "Nombre": "Backup y Conectividad Nube",
+      "HijosIds": [
+        "10000001-0000-0000-0000-000000000008",
+        "10000001-0000-0000-0000-000000000009",
+        "10000001-0000-0000-0000-000000000010"
+      ]
+    }
+  ],
+  "Perfiles": [
+    {
+      "Id": "30000001-0000-0000-0000-000000000001",
+      "Nombre": "Administrador Total",
+      "Descripcion": "Acceso integral a Forwarders, Puertos, Roles, DVH/DVV y RestoreBackup.",
+      "ComponentesAsignadosIds": [
+        "20000001-0000-0000-0000-000000000001",
+        "10000001-0000-0000-0000-000000000005",
+        "20000001-0000-0000-0000-000000000002",
+        "20000001-0000-0000-0000-000000000003"
+      ]
+    },
+    {
+      "Id": "30000001-0000-0000-0000-000000000002",
+      "Nombre": "Operador Logístico",
+      "Descripcion": "Gestiona Forwarders y Puertos sin acceso a seguridad ni restore.",
+      "ComponentesAsignadosIds": [
+        "20000001-0000-0000-0000-000000000001",
+        "10000001-0000-0000-0000-000000000005"
+      ]
+    }
+  ],
+  "PerfilPorUsuario": {
+    "Admin": "30000001-0000-0000-0000-000000000001"
+  }
+}

@@ -1,8 +1,34 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { idiomaSubject, DICCIONARIO_IDIOMAS } from "@/i18n/IdiomaObserver";
+import { exportarComprobanteXlsx } from "@/lib/excelExport";
+
+function limpiarNumeroWhatsapp(raw) {
+  return String(raw || "").replace(/[^0-9]/g, "");
+}
 
 export default function ImportaPlusApp() {
-  // Buscador Predictivo de Producto por Nombre (En blanco al iniciar, sin código NCM)
+  // --- PATRÓN OBSERVER: Estado reactivo suscrito a IdiomaSubject (ES / EN) ---
+  const [idioma, setIdioma] = useState("es");
+  const [dicc, setDicc] = useState(DICCIONARIO_IDIOMAS.es);
+
+  useEffect(() => {
+    setIdioma(idiomaSubject.obtenerIdioma());
+    setDicc(idiomaSubject.obtenerDiccionario());
+
+    // Observador Concreto suscrito al Sujeto de Idioma
+    const observadorReact = {
+      actualizarIdioma(nuevoIdioma, nuevoDiccionario) {
+        setIdioma(nuevoIdioma);
+        setDicc(nuevoDiccionario);
+      }
+    };
+
+    const desuscribir = idiomaSubject.suscribir(observadorReact);
+    return () => desuscribir();
+  }, []);
+
+  // Buscador Predictivo de Producto por Nombre (Debounce 300ms + Caché sesión anti-cuota)
   const [busqueda, setBusqueda] = useState("");
   const [sugerenciasNcm, setSugerenciasNcm] = useState([]);
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
@@ -21,58 +47,66 @@ export default function ImportaPlusApp() {
   const [flete, setFlete] = useState(0);
   const [seguro, setSeguro] = useState(0);
   const [condicionImportador, setCondicionImportador] = useState("REVENTA_RI");
-  const [usaExcepcion, setUsaExcepcion] = useState(true);
+  const [usaExcepcion] = useState(true);
 
-  // Resultados y Flujo Post-Cálculo (PN1 -> PN2 -> PN3 -> PN4)
+  // Resultados, Puertos y Grilla de 4 Forwarders
   const [resultado, setResultado] = useState(null);
   const [mostrarDescResultado, setMostrarDescResultado] = useState(false);
   const [puertosSugeridos, setPuertosSugeridos] = useState([]);
-  const [operadores, setOperadores] = useState([]);
+  const [forwarders, setForwarders] = useState([]);
   const [calculando, setCalculando] = useState(false);
   const [mostrarPuertosYForwarders, setMostrarPuertosYForwarders] = useState(false);
+  const [mostrarSeccionForwarders, setMostrarSeccionForwarders] = useState(false);
+  const [mailCopiadoId, setMailCopiadoId] = useState(null);
 
-  // Modal de Contacto Forwarder / Despachante
-  const [modalOperador, setModalOperador] = useState(null);
-  const [leadNombre, setLeadNombre] = useState("");
-  const [leadEmpresa, setLeadEmpresa] = useState("");
-  const [leadEmail, setLeadEmail] = useState("");
-  const [leadTelefono, setLeadTelefono] = useState("");
-  const [leadComentarios, setLeadComentarios] = useState("");
-  const [enviandoLead, setEnviandoLead] = useState(false);
-  const [leadEnviadoExito, setLeadEnviadoExito] = useState(false);
+  const forwardersRef = useRef(null);
 
-  // Búsqueda incremental por nombre de producto (< 250ms)
+  // Búsqueda incremental con Debounce 300ms + Caché local de sesión para cuidar Supabase Free
   useEffect(() => {
-    if (busqueda.trim().length < 2 || productoSeleccionado) {
+    const q = busqueda.trim();
+    if (q.length < 2 || productoSeleccionado) {
       setSugerenciasNcm([]);
       return;
     }
 
+    const cacheKey = `ncm_q_${q.toLowerCase()}`;
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        setSugerenciasNcm(JSON.parse(cached));
+        return;
+      }
+    } catch {}
+
     const timer = setTimeout(async () => {
       setCargandoBusqueda(true);
       try {
-        const res = await fetch(`/api/v1/ncm/search?q=${encodeURIComponent(busqueda)}`);
+        const res = await fetch(`/api/v1/ncm/search?q=${encodeURIComponent(q)}`);
         const data = await res.json();
-        setSugerenciasNcm(data.results || []);
+        const items = data.results || [];
+        setSugerenciasNcm(items);
+        try {
+          sessionStorage.setItem(cacheKey, JSON.stringify(items));
+        } catch {}
       } catch (err) {
         console.error("Error al buscar productos:", err);
       } finally {
         setCargandoBusqueda(false);
       }
-    }, 200);
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [busqueda, productoSeleccionado]);
 
-  // Carga inicial de los 195 países, operadores y puertos desde Excel
+  // Carga inicial consolidada (1 sola petición cacheada en CDN para países, puertos y 4 forwarders)
   useEffect(() => {
     async function cargarDirectorio() {
       try {
         const res = await fetch("/api/v1/puertos");
         const data = await res.json();
-        if (data.operadores) setOperadores(data.operadores);
-        if (data.puertos && puertosSugeridos.length === 0) setPuertosSugeridos(data.puertos);
-        if (data.paises) setPaisesCatalogo(data.paises);
+        if (Array.isArray(data.forwarders)) setForwarders(data.forwarders);
+        if (Array.isArray(data.puertos)) setPuertosSugeridos(data.puertos);
+        if (Array.isArray(data.paises)) setPaisesCatalogo(data.paises);
       } catch (err) {
         console.warn("Error al cargar directorio:", err);
       }
@@ -80,7 +114,6 @@ export default function ImportaPlusApp() {
     cargarDirectorio();
   }, []);
 
-  // Filtrado incremental de países (exclusivamente por letras)
   const filtrarPaises = (texto) => {
     const normalizar = (s) =>
       String(s || "")
@@ -108,11 +141,44 @@ export default function ImportaPlusApp() {
     setSugerenciasPais(filtrados.slice(0, 15));
   };
 
-  // Ejecución de la simulación aduanera
+  const abrirForwarders = () => {
+    setMostrarSeccionForwarders(true);
+    setTimeout(() => {
+      if (forwardersRef.current) {
+        forwardersRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 80);
+  };
+
+  const redirigirWhatsapp = (fwd) => {
+    const digits = limpiarNumeroWhatsapp(fwd.whatsapp);
+    if (!digits) return;
+    const msg = encodeURIComponent(dicc.waMensajeDefault);
+    window.open(`https://wa.me/${digits}?text=${msg}`, "_blank", "noopener,noreferrer");
+  };
+
+  const copiarEmailForwarder = async (fwd) => {
+    if (!fwd.email) return;
+    try {
+      await navigator.clipboard.writeText(fwd.email);
+    } catch {
+      const temp = document.createElement("textarea");
+      temp.value = fwd.email;
+      document.body.appendChild(temp);
+      temp.select();
+      document.execCommand("copy");
+      document.body.removeChild(temp);
+    }
+    setMailCopiadoId(fwd.id);
+    setTimeout(() => {
+      setMailCopiadoId((prev) => (prev === fwd.id ? null : prev));
+    }, 2200);
+  };
+
   const ejecutarCalculo = async (e) => {
     e.preventDefault();
     if (!productoSeleccionado) {
-      alert("Por favor escribí y seleccioná un producto a importar.");
+      alert(dicc.alertProducto);
       return;
     }
 
@@ -131,17 +197,17 @@ export default function ImportaPlusApp() {
     }
 
     if (!paisFinal) {
-      alert("Por favor escribí y seleccioná un país de origen.");
+      alert(dicc.alertPais);
       return;
     }
 
     if (Number(cantidad) <= 0) {
-      alert("La cantidad de unidades debe ser mayor a 0.");
+      alert(dicc.alertCantidad);
       return;
     }
 
     if (Number(fobUnitario) <= 0) {
-      alert("El valor por unidad (USD FOB) debe ser mayor a 0.");
+      alert(dicc.alertFob);
       return;
     }
 
@@ -174,6 +240,7 @@ export default function ImportaPlusApp() {
           setPuertosSugeridos(data.puertosSugeridos);
         }
         setMostrarPuertosYForwarders(false);
+        setMostrarSeccionForwarders(true);
       }
     } catch (err) {
       alert("Error: " + err.message);
@@ -182,60 +249,34 @@ export default function ImportaPlusApp() {
     }
   };
 
-  // Enviar solicitud de contacto al Despachante/Forwarder
-  const enviarSolicitudLead = async (e) => {
-    e.preventDefault();
-    if (!modalOperador) return;
-
-    setEnviandoLead(true);
-    try {
-      const res = await fetch("/api/v1/leads", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          operadorId: modalOperador.id,
-          idCotizacion: resultado?.idCotizacion || null,
-          nombreApellido: leadNombre,
-          empresa: leadEmpresa || null,
-          email: leadEmail,
-          telefono: leadTelefono,
-          comentarios: leadComentarios || null
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error al enviar solicitud");
-
-      setLeadEnviadoExito(true);
-      setTimeout(() => {
-        setLeadEnviadoExito(false);
-        setModalOperador(null);
-        setLeadNombre("");
-        setLeadEmpresa("");
-        setLeadEmail("");
-        setLeadTelefono("");
-        setLeadComentarios("");
-      }, 2500);
-    } catch (err) {
-      alert("Error: " + err.message);
-    } finally {
-      setEnviandoLead(false);
-    }
-  };
+  const localeFormato = idioma === "en" ? "en-US" : "es-AR";
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
-      {/* Header Institucional IMPORTA+ */}
+      {/* Header Institucional IMPORTA+ con Botón Alternador Multi-idioma (Observer) */}
       <header className="bg-[#420213] text-white py-4 px-6 shadow-md print:bg-white print:text-black print:border-b">
-        <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+        <div className="max-w-5xl mx-auto flex flex-row justify-between items-center gap-3">
           <div className="flex items-center gap-4">
             <div className="cursor-pointer">
-              <img src="/logo-importa.png" alt="IMPORTA+" className="h-7 md:h-8 w-auto object-contain select-none" />
+              <img src="/logo-importa.svg" alt="IMPORTA+" className="h-7 md:h-8 w-auto object-contain select-none" />
             </div>
             <p className="text-xs text-rose-100/90 sm:whitespace-nowrap hidden sm:block border-l border-white/20 pl-4">
-              Simulador oficial de costos aduaneros y tributos ARCA&nbsp;/&nbsp;DGA
+              {dicc.heroSubtitle}
             </p>
           </div>
+
+          {/* Botón Alternador de Idioma Español <-> Inglés (Patrón Observer) */}
+          <button
+            type="button"
+            onClick={() => idiomaSubject.alternarIdioma()}
+            title="Cambiar idioma / Switch language"
+            className="print:hidden inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/25 text-white text-xs font-bold px-3.5 py-1.5 rounded-full transition-colors cursor-pointer select-none"
+          >
+            <svg className="w-3.5 h-3.5 text-rose-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+            </svg>
+            <span>{dicc.toggleBtn}</span>
+          </button>
         </div>
       </header>
 
@@ -245,19 +286,18 @@ export default function ImportaPlusApp() {
           <div className="flex items-center justify-between mb-4 border-b pb-3">
             <div>
               <span className="text-xs font-bold uppercase tracking-widest text-[#530618]">
-                Paso 1 de 2 · Parámetros Comerciales
+                {dicc.paso1}
               </span>
               <h2 className="text-xl font-bold text-slate-800">
-                Liquidación Aduanera
+                {dicc.tituloLiquidacion}
               </h2>
             </div>
           </div>
 
           <form onSubmit={ejecutarCalculo} className="space-y-5">
-            {/* Buscador Incremental exclusivamente por Nombre de Producto (En blanco al iniciar, sin código NCM) */}
             <div className="relative">
               <label className="block text-sm font-semibold text-slate-700 mb-1">
-                Producto a Importar <span className="text-rose-600">*</span>
+                {dicc.lblProducto} <span className="text-rose-600">*</span>
               </label>
               <input
                 type="text"
@@ -268,17 +308,16 @@ export default function ImportaPlusApp() {
                   setMostrarDescProducto(false);
                 }}
                 onBlur={() => setSugerenciasNcm([])}
-                placeholder="Escribí el nombre del producto (ej: Notebook, Remera, Router, Calzado)..."
+                placeholder={dicc.phProducto}
                 className="w-full p-3.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#530618] focus:border-[#530618] outline-none text-slate-900 shadow-sm"
               />
 
               {cargandoBusqueda && (
                 <div className="absolute right-4 top-10 text-xs text-slate-400 animate-pulse">
-                  Buscando producto...
+                  {dicc.buscandoProducto}
                 </div>
               )}
 
-              {/* Menú Desplegable con Sugerencias por Nombre */}
               {sugerenciasNcm.length > 0 && !productoSeleccionado && (
                 <ul className="absolute z-20 w-full bg-white border border-slate-300 rounded-lg mt-1 shadow-2xl max-h-72 overflow-y-auto divide-y divide-slate-100">
                   {sugerenciasNcm.map((item) => (
@@ -297,7 +336,7 @@ export default function ImportaPlusApp() {
                           {item.descripcion}
                         </span>
                         <span className="ml-3 shrink-0 text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded font-medium">
-                          Arancel: {item.anexo_excepcion ? item.arancel_excepcion : item.aec}%
+                          {dicc.arancel}: {item.anexo_excepcion && item.arancel_excepcion !== null ? item.arancel_excepcion : item.aec}%
                         </span>
                       </div>
                     </li>
@@ -305,12 +344,11 @@ export default function ImportaPlusApp() {
                 </ul>
               )}
 
-              {/* Ficha del Producto Seleccionado con Descripción Desplegable por Botón */}
               {productoSeleccionado && (
                 <div className="mt-3 p-3.5 bg-rose-50/50 border border-rose-200 rounded-lg text-xs">
                   <div className="flex flex-wrap justify-between items-center gap-2">
                     <span className="font-bold text-[#530618]">
-                      Producto seleccionado · Arancel Base: {productoSeleccionado.aec}%
+                      {dicc.prodSeleccionado} · {dicc.arancelBase}: {productoSeleccionado.aec}%
                     </span>
                     <div className="flex items-center gap-3">
                       <button
@@ -318,7 +356,7 @@ export default function ImportaPlusApp() {
                         onClick={() => setMostrarDescProducto(!mostrarDescProducto)}
                         className="font-bold text-[#530618] bg-white border border-rose-200 px-2.5 py-1 rounded hover:bg-[#530618] hover:text-white transition-colors"
                       >
-                        {mostrarDescProducto ? "Ocultar descripción del producto ▲" : "Ver descripción del producto ▼"}
+                        {mostrarDescProducto ? dicc.ocultarDesc : dicc.verDesc}
                       </button>
                       <button
                         type="button"
@@ -329,7 +367,7 @@ export default function ImportaPlusApp() {
                         }}
                         className="text-rose-700 hover:underline font-semibold"
                       >
-                        Cambiar
+                        {dicc.cambiar}
                       </button>
                     </div>
                   </div>
@@ -342,11 +380,10 @@ export default function ImportaPlusApp() {
               )}
             </div>
 
-            {/* Variables Comerciales: País de origen (Búsqueda incremental 195 países), Cantidad (0) y Valor FOB (0) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
               <div className="relative">
                 <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wider">
-                  País de origen *
+                  {dicc.lblPais} *
                 </label>
                 <input
                   type="text"
@@ -371,7 +408,7 @@ export default function ImportaPlusApp() {
                   onFocus={(e) => filtrarPaises(e.target.value)}
                   onClick={(e) => filtrarPaises(e.target.value)}
                   onBlur={() => setSugerenciasPais([])}
-                  placeholder="Buscar país de origen..."
+                  placeholder={dicc.phPais}
                   className="w-full p-2.5 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-[#530618]"
                 />
                 {sugerenciasPais.length > 0 && (
@@ -389,7 +426,7 @@ export default function ImportaPlusApp() {
                       >
                         <span className="font-semibold text-slate-800">{p.nombre}</span>
                         <span className={`px-2 py-0.5 rounded text-[10px] ${p.es_mercosur ? "bg-emerald-50 text-emerald-700 font-bold" : "bg-slate-100 text-slate-600"}`}>
-                          {p.es_mercosur ? "Mercosur" : "Extrazona"}
+                          {p.es_mercosur ? dicc.mercosur : dicc.extrazona}
                         </span>
                       </li>
                     ))}
@@ -399,7 +436,7 @@ export default function ImportaPlusApp() {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wider">
-                  Cantidad (Unidades) *
+                  {dicc.lblCantidad} *
                 </label>
                 <input
                   type="number"
@@ -414,7 +451,7 @@ export default function ImportaPlusApp() {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wider">
-                  Valor por unidad (USD FOB) *
+                  {dicc.lblFobUnitario} *
                 </label>
                 <input
                   type="number"
@@ -429,58 +466,56 @@ export default function ImportaPlusApp() {
               </div>
             </div>
 
-            {/* Flete internacional (USD) y Seguro de transporte (USD) inicializados en 0 */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold uppercase tracking-widest text-[#530618]">Costos adicionales</span>
-                  <span className="text-[10px] font-semibold border border-slate-300 text-slate-500 px-1.5 py-0.5 rounded uppercase">Opcional</span>
+                  <span className="text-xs font-bold uppercase tracking-widest text-[#530618]">{dicc.costosAdicionales}</span>
+                  <span className="text-[10px] font-semibold border border-slate-300 text-slate-500 px-1.5 py-0.5 rounded uppercase">{dicc.opcional}</span>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setModalOperador(operadores.find(o => o.tipo_operador === 'FORWARDER') || operadores[0] || { id: 'default', razon_social: 'Forwarder Internacional', matricula: 'DGA-FWD-01' })}
+                  onClick={abrirForwarders}
                   className="bg-[#530618] hover:bg-[#3D0411] text-white text-xs font-semibold px-3 py-1.5 rounded transition-colors shadow-sm"
                 >
-                  Contactar Fordweader
+                  {dicc.btnContactarForwarder}
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wider">
-                  Flete internacional (USD)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={flete}
-                  onFocus={(e) => { if (Number(e.target.value) === 0) e.target.select(); }}
-                  onChange={(e) => setFlete(e.target.value === "" ? 0 : e.target.value)}
-                  className="w-full p-2.5 border border-slate-300 rounded-lg text-sm"
-                />
-              </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wider">
+                    {dicc.lblFlete}
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={flete}
+                    onFocus={(e) => { if (Number(e.target.value) === 0) e.target.select(); }}
+                    onChange={(e) => setFlete(e.target.value === "" ? 0 : e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-lg text-sm"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wider">
-                  Seguro de transporte (USD)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={seguro}
-                  onFocus={(e) => { if (Number(e.target.value) === 0) e.target.select(); }}
-                  onChange={(e) => setSeguro(e.target.value === "" ? 0 : e.target.value)}
-                  className="w-full p-2.5 border border-slate-300 rounded-lg text-sm"
-                />
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wider">
+                    {dicc.lblSeguro}
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={seguro}
+                    onFocus={(e) => { if (Number(e.target.value) === 0) e.target.select(); }}
+                    onChange={(e) => setSeguro(e.target.value === "" ? 0 : e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-lg text-sm"
+                  />
+                </div>
               </div>
             </div>
-          </div>
 
-            {/* Condición Impositiva del Importador (Sin Aclaración) */}
             <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
-                Condición Impositiva del Importador
+                {dicc.lblCondicionImpositiva}
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label className="flex items-center gap-2.5 p-2.5 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-[#530618] transition-colors">
@@ -493,7 +528,7 @@ export default function ImportaPlusApp() {
                     className="accent-[#530618]"
                   />
                   <span className="text-xs font-bold text-slate-800">
-                    Responsable Inscripto / Reventa
+                    {dicc.condInscripto}
                   </span>
                 </label>
 
@@ -507,7 +542,7 @@ export default function ImportaPlusApp() {
                     className="accent-[#530618]"
                   />
                   <span className="text-xs font-bold text-slate-800">
-                    Consumo Particular / No categorizado
+                    {dicc.condConsumo}
                   </span>
                 </label>
               </div>
@@ -519,160 +554,139 @@ export default function ImportaPlusApp() {
               disabled={calculando}
               className="w-full bg-[#530618] hover:bg-[#3D0411] text-white font-bold py-4 rounded-lg transition-all duration-200 shadow-md uppercase tracking-widest text-sm flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              {calculando ? "Procesando liquidación..." : "CALCULAR IMPORTACION"}
+              {calculando ? dicc.calculando : dicc.btnCalcular}
             </button>
           </form>
         </section>
 
-        {/* PN2: Liquidación Aduanera (PN1) y Comprobante con Descripción Desplegable */}
+        {/* PN2: Comprobante de Liquidación Aduanera */}
         {resultado && (
           <section className="bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-slate-200 space-y-6">
             <div className="flex flex-wrap justify-between items-center border-b pb-4 gap-3">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold uppercase tracking-widest text-[#530618]">
-                    Liquidación Aduanera
+                    {dicc.tituloLiquidacion}
                   </span>
                   <span className="text-xs font-mono font-bold bg-slate-900 text-white px-2.5 py-1 rounded">
                     ID: {resultado.idCotizacion}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  Origen: <strong>{resultado.fichaProducto.paisOrigen}</strong> ({resultado.fichaProducto.regimenAplicado})
+                  {dicc.origen}: <strong>{resultado.fichaProducto.paisOrigen}</strong> ({resultado.fichaProducto.regimenAplicado})
                 </p>
               </div>
 
-              {/* Botón de Descripción del Producto Desplegable + Exportación Excel / PDF */}
               <div className="flex flex-wrap gap-2 print:hidden">
                 <button
                   type="button"
                   onClick={() => setMostrarDescResultado(!mostrarDescResultado)}
                   className="px-3.5 py-2.5 text-xs font-bold border border-[#530618] text-[#530618] hover:bg-[#530618] hover:text-white rounded-lg transition-colors"
                 >
-                  {mostrarDescResultado ? "Ocultar descripción del producto ▲" : "Ver descripción del producto ▼"}
+                  {mostrarDescResultado ? dicc.ocultarDesc : dicc.verDesc}
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     const r = resultado;
-                    const filas = [
-                      ["IMPORTA+ | COMPROBANTE OFICIAL DE SIMULACIÓN ADUANERA (ARCA / DGA)", "", ""],
-                      ["ID Comprobante", r.idCotizacion, ""],
-                      ["Fecha Emisión", new Date(r.fechaEmision || Date.now()).toLocaleString("es-AR"), ""],
-                      ["Descripción", `"${String(r.fichaProducto.descripcion || "").replace(/"/g, '""')}"`, ""],
-                      ["País Origen", r.fichaProducto.paisOrigen, ""],
-                      ["Régimen Aplicado", r.fichaProducto.regimenAplicado, ""],
-                      ["Cantidad Unidades", r.parametrosComerciales.cantidad, ""],
-                      ["", "", ""],
-                      ["CONCEPTO / PARTIDA ADUANERA", "ALÍCUOTA", "IMPORTE (USD)"],
-                      ["Valor FOB Unitario", "Origen", r.parametrosComerciales.valorFobUnitario.toFixed(2)],
-                      ["Valor FOB Total", `${r.parametrosComerciales.cantidad} u.`, r.parametrosComerciales.valorFobTotal.toFixed(2)],
-                      ["Flete Internacional", "Transporte", r.parametrosComerciales.flete.toFixed(2)],
-                      ["Seguro Internacional", "Póliza", r.parametrosComerciales.seguro.toFixed(2)],
-                      ["VALOR CIF ADUANERO", "Base Imponible", r.parametrosComerciales.valorCIF.toFixed(2)],
-                      ...r.desgloseTributario.map((it) => [
-                        `"${String(it.concepto || "").replace(/"/g, '""')}"`,
-                        it.alicuota,
-                        Number(it.montoUSD || 0).toFixed(2)
-                      ]),
-                      ["", "", ""],
-                      ["TOTAL GRAVÁMENES ADUANEROS", `+${r.resumenEconomico.incidenciaFiscalPct}% s/FOB`, r.resumenEconomico.totalGravamenesUSD.toFixed(2)],
-                      ["COSTO TOTAL NACIONALIZADO (USD)", "Puesto en Plaza", r.resumenEconomico.costoTotalNacionalizadoUSD.toFixed(2)],
-                      ["COSTO UNITARIO FINAL (USD)", "Por Unidad", r.resumenEconomico.costoUnitarioFinalUSD.toFixed(2)],
-                      ["Tipo de Cambio Oficial BNA", "ARS/USD", r.resumenEconomico.tipoCambioBNA.toFixed(2)],
-                      ["COSTO TOTAL ESTIMADO (ARS)", "Pesos Argentinos", r.resumenEconomico.costoTotalEstimadoARS.toFixed(2)]
-                    ];
-                    const csv = "\uFEFF" + filas.map((f) => f.join(";")).join("\r\n");
-                    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `Comprobante_ImportaPlus_${r.idCotizacion}.csv`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
+                    exportarComprobanteXlsx({
+                      idCotizacion: r.idCotizacion,
+                      fechaEmision: r.fechaEmision,
+                      descripcion: r.fichaProducto.descripcion,
+                      pais: r.fichaProducto.paisOrigen,
+                      regimen: r.fichaProducto.regimenAplicado,
+                      cantidad: r.parametrosComerciales.cantidad,
+                      fobUnit: r.parametrosComerciales.valorFobUnitario,
+                      fobTotal: r.parametrosComerciales.valorFobTotal,
+                      flete: r.parametrosComerciales.flete,
+                      seguro: r.parametrosComerciales.seguro,
+                      cif: r.parametrosComerciales.valorCIF,
+                      desglose: r.desgloseTributario,
+                      incidenciaPct: r.resumenEconomico.incidenciaFiscalPct,
+                      totalGrav: r.resumenEconomico.totalGravamenesUSD,
+                      costoNac: r.resumenEconomico.costoTotalNacionalizadoUSD,
+                      costoUnit: r.resumenEconomico.costoUnitarioFinalUSD,
+                      tcBna: r.resumenEconomico.tipoCambioBNA,
+                      costoArs: r.resumenEconomico.costoTotalEstimadoARS
+                    });
                   }}
                   className="px-4 py-2.5 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg transition-colors flex items-center gap-1.5"
                 >
-                  Exportar Planilla Excel
+                  {dicc.btnExportarExcel}
                 </button>
                 <button
                   onClick={() => window.print()}
                   className="px-4 py-2.5 text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors flex items-center gap-1.5"
                 >
-                  Imprimir / PDF
+                  {dicc.btnImprimirPdf}
                 </button>
               </div>
             </div>
 
-            {/* Panel Desplegable de Descripción del Producto */}
             {mostrarDescResultado && (
               <div className="p-4 bg-rose-50/50 border border-rose-200 rounded-lg text-sm text-slate-800">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#530618] block mb-1">
-                  Descripción del Producto
+                  {dicc.descProductoTitulo}
                 </span>
                 {resultado.fichaProducto.descripcion}
               </div>
             )}
 
-            {/* Tarjetas Comparativas de Costo (FOB vs Gravámenes vs Desembolso Final) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="p-5 bg-slate-50 rounded-xl border border-slate-200">
                 <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
-                  1. Valor Compra FOB Total
+                  {dicc.card1Titulo}
                 </p>
                 <p className="text-2xl font-black text-slate-800 mt-1">
-                  USD {resultado.parametrosComerciales.valorFobTotal.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+                  USD {resultado.parametrosComerciales.valorFobTotal.toLocaleString(localeFormato, { minimumFractionDigits: 2 })}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">
-                  Flete: USD {resultado.parametrosComerciales.flete.toLocaleString("es-AR", { minimumFractionDigits: 2 })} | Seguro: USD {resultado.parametrosComerciales.seguro.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+                  {dicc.itemFlete}: USD {resultado.parametrosComerciales.flete.toLocaleString(localeFormato, { minimumFractionDigits: 2 })} | {dicc.itemSeguro}: USD {resultado.parametrosComerciales.seguro.toLocaleString(localeFormato, { minimumFractionDigits: 2 })}
                 </p>
                 <p className="text-xs font-semibold text-slate-600 mt-2 pt-2 border-t border-slate-200">
-                  Valor CIF Aduanero: USD {resultado.parametrosComerciales.valorCIF.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+                  {dicc.card1Cif}: USD {resultado.parametrosComerciales.valorCIF.toLocaleString(localeFormato, { minimumFractionDigits: 2 })}
                 </p>
               </div>
 
               <div className="p-5 bg-amber-50 rounded-xl border border-amber-200">
                 <p className="text-xs text-amber-800 uppercase tracking-wider font-semibold">
-                  2. Impuestos & Tasas Aduaneras
+                  {dicc.card2Titulo}
                 </p>
                 <p className="text-2xl font-black text-amber-700 mt-1">
-                  + USD {resultado.resumenEconomico.totalGravamenesUSD.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+                  + USD {resultado.resumenEconomico.totalGravamenesUSD.toLocaleString(localeFormato, { minimumFractionDigits: 2 })}
                 </p>
                 <p className="text-xs text-amber-800 mt-1">
-                  Incidencia fiscal sobre compra FOB: <strong>+{resultado.resumenEconomico.incidenciaFiscalPct}%</strong>
+                  {dicc.card2Incidencia} <strong>+{resultado.resumenEconomico.incidenciaFiscalPct}%</strong>
                 </p>
               </div>
 
               <div className="p-5 bg-rose-50 rounded-xl border border-rose-200">
                 <p className="text-xs text-[#530618] uppercase tracking-wider font-semibold">
-                  3. Costo Final Nacionalizado
+                  {dicc.card3Titulo}
                 </p>
                 <p className="text-2xl font-black text-[#530618] mt-1">
-                  USD {resultado.resumenEconomico.costoTotalNacionalizadoUSD.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+                  USD {resultado.resumenEconomico.costoTotalNacionalizadoUSD.toLocaleString(localeFormato, { minimumFractionDigits: 2 })}
                 </p>
                 <p className="text-xs font-bold text-[#530618] mt-1">
-                  Costo Unitario Final: USD {resultado.resumenEconomico.costoUnitarioFinalUSD.toLocaleString("es-AR", { minimumFractionDigits: 2 })} / unidad
+                  {dicc.costoUnitarioNac} USD {resultado.resumenEconomico.costoUnitarioFinalUSD.toLocaleString(localeFormato, { minimumFractionDigits: 2 })} / {dicc.unidad}
                 </p>
                 <p className="text-xs text-rose-800 mt-2 pt-2 border-t border-rose-200">
-                  ≈ ARS ${resultado.resumenEconomico.costoTotalEstimadoARS.toLocaleString("es-AR", { minimumFractionDigits: 2 })} (TC Oficial BNA)
+                  ≈ ARS ${resultado.resumenEconomico.costoTotalEstimadoARS.toLocaleString(localeFormato, { minimumFractionDigits: 2 })} ({dicc.card3Tc})
                 </p>
               </div>
             </div>
 
-            {/* Tabla Analítica de Desglose Impositivo Oficial */}
             <div className="border border-slate-200 rounded-lg overflow-hidden">
               <div className="bg-slate-100 px-4 py-2.5 font-bold text-xs uppercase tracking-wider text-slate-700">
-                Liquidación Analítica Detallada de Gravámenes Oficiales
+                {dicc.tablaTitulo}
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 text-slate-600 border-b text-xs uppercase">
-                      <th className="p-3">Concepto Tributario</th>
-                      <th className="p-3">Alícuota Aplicada</th>
-                      <th className="p-3 text-right">Importe en USD</th>
+                      <th className="p-3">{dicc.thConcepto}</th>
+                      <th className="p-3">{dicc.thAlicuota}</th>
+                      <th className="p-3 text-right">{dicc.thImporte}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -686,7 +700,7 @@ export default function ImportaPlusApp() {
                         </td>
                         <td className="p-3 font-mono text-xs">{item.alicuota}</td>
                         <td className="p-3 text-right font-mono font-semibold">
-                          USD {item.montoUSD.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+                          USD {item.montoUSD.toLocaleString(localeFormato, { minimumFractionDigits: 2 })}
                         </td>
                       </tr>
                     ))}
@@ -695,16 +709,15 @@ export default function ImportaPlusApp() {
               </div>
             </div>
 
-            {/* Botón de Puertos y Aduanas (PN3) */}
             <div className="pt-4 border-t flex flex-wrap justify-between items-center gap-3 print:hidden">
               <p className="text-xs text-slate-600">
-                ¿Querés consultar los puntos aduaneros habilitados para este origen?
+                {dicc.preguntaPuertos}
               </p>
               <button
                 onClick={() => setMostrarPuertosYForwarders(!mostrarPuertosYForwarders)}
                 className="bg-[#530618] hover:bg-[#3D0411] text-white px-6 py-3 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
               >
-                <span>{mostrarPuertosYForwarders ? "Ocultar Puertos y Aduanas" : "Ver Puertos y Aduanas"}</span>
+                <span>{mostrarPuertosYForwarders ? dicc.ocultarPuertos : dicc.verPuertos}</span>
                 <span>&rarr;</span>
               </button>
             </div>
@@ -718,14 +731,14 @@ export default function ImportaPlusApp() {
               <div className="flex items-center justify-between border-b pb-3">
                 <div>
                   <span className="text-xs font-bold uppercase tracking-widest text-[#530618]">
-                    PN3 · Logística Aduanera
+                    {dicc.pn3Tag}
                   </span>
                   <h3 className="text-xl font-bold text-slate-800">
-                    Puertos y Aduanas Sugeridos para {resultado?.fichaProducto.paisOrigen || "este Origen"}
+                    {dicc.puertosSugeridosPara} {resultado?.fichaProducto.paisOrigen || ""}
                   </h3>
                 </div>
                 <span className="text-xs bg-rose-50 text-[#530618] px-3 py-1 rounded-full font-semibold">
-                  Puntos Habilitados DGA
+                  {dicc.puntosHabilitados}
                 </span>
               </div>
 
@@ -757,44 +770,88 @@ export default function ImportaPlusApp() {
           </section>
         )}
 
-        {/* Modal Informativo: Sección en Desarrollo PN4 */}
-        {modalOperador && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-            <div className="bg-white w-full max-w-md rounded-2xl p-8 shadow-2xl border border-slate-200 relative text-center">
-              <button
-                onClick={() => setModalOperador(null)}
-                className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 text-xl font-bold"
-              >
-                &times;
-              </button>
-
-              <div className="w-16 h-16 rounded-full bg-rose-50 text-[#530618] flex items-center justify-center mx-auto mb-5 shadow-inner">
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-              </div>
-
-              <span className="text-xs font-bold uppercase tracking-widest text-[#530618] bg-rose-50 border border-rose-200 px-3 py-1 rounded-full inline-block mb-3">
-                Próximamente
+        {/* PN4: APARTADO FORWARDERS - 4 CUADRADOS ESTILO GRILLA (Foto + Nombre máx 120 chars + Botón WhatsApp + Botón Mail abajo) */}
+        {(mostrarSeccionForwarders || mostrarPuertosYForwarders || forwarders.length > 0) && (
+          <section ref={forwardersRef} className="bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-slate-200 space-y-6 print:hidden">
+            <div className="border-b pb-3">
+              <span className="text-xs font-bold uppercase tracking-widest text-[#530618]">
+                {dicc.fwdTag}
               </span>
-
-              <h3 className="text-2xl font-bold text-slate-900 mb-2">
-                Sección en Desarrollo PN4
+              <h3 className="text-xl font-bold text-slate-800 mt-0.5">
+                {dicc.fwdTitulo}
               </h3>
-
-              <p className="text-xs text-slate-500 mb-6 leading-relaxed">
-                El módulo de conexión directa y cotización con despachantes de aduana y forwarders se encuentra actualmente en proceso de integración.
+              <p className="text-xs text-slate-500 mt-1">
+                {dicc.fwdSubtitulo}
               </p>
-
-              <button
-                type="button"
-                onClick={() => setModalOperador(null)}
-                className="w-full bg-[#530618] hover:bg-[#3D0411] text-white font-bold py-3.5 rounded-lg text-xs uppercase tracking-widest transition-colors shadow"
-              >
-                Cerrar
-              </button>
             </div>
-          </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {forwarders.map((fwd) => {
+                const nombreCortado = String(fwd.nombre || "").slice(0, 120);
+                const copiado = mailCopiadoId === fwd.id;
+                return (
+                  <div
+                    key={fwd.id}
+                    className="bg-[#FFF8F8] border border-[#F0D0D4] rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:border-[#530618] transition-all flex flex-col justify-between"
+                  >
+                    {/* 1. FOTO cuadrada superior */}
+                    <div className="w-full aspect-square bg-slate-200 overflow-hidden relative">
+                      <img
+                        src={fwd.imagen_url || "/logo-importa.png"}
+                        alt={nombreCortado}
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = "/logo-importa.png";
+                        }}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+
+                    {/* 2. Nombre arriba de los dos botones (máximo 120 caracteres) + WhatsApp + Mail abajo */}
+                    <div className="p-4 flex flex-col flex-1 justify-between gap-3">
+                      <h4
+                        className="text-sm font-bold text-[#171717] text-center leading-snug break-words"
+                        title={nombreCortado}
+                      >
+                        {nombreCortado}
+                      </h4>
+
+                      <div className="space-y-2">
+                        {/* Botón Superior: Icono de WhatsApp -> Redirige a WhatsApp */}
+                        <button
+                          type="button"
+                          onClick={() => redirigirWhatsapp(fwd)}
+                          className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 px-3 rounded-lg transition-colors shadow-sm cursor-pointer"
+                        >
+                          <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                            <path d="M20.52 3.48A11.82 11.82 0 0012.06 0C5.5 0 .16 5.34.16 11.9c0 2.1.55 4.15 1.6 5.95L0 24l6.32-1.66a11.86 11.86 0 005.74 1.46h.01c6.55 0 11.89-5.34 11.89-11.9 0-3.18-1.24-6.17-3.44-8.42zM12.07 21.8h-.01a9.87 9.87 0 01-5.03-1.38l-.36-.21-3.75.98 1-3.65-.24-.38a9.85 9.85 0 01-1.51-5.26c0-5.45 4.44-9.89 9.9-9.89 2.64 0 5.13 1.03 7 2.9a9.83 9.83 0 012.9 7c0 5.45-4.44 9.89-9.9 9.89zm5.43-7.41c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.88 1.22 3.08.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35z" />
+                          </svg>
+                          <span>{dicc.btnWhatsapp}</span>
+                        </button>
+
+                        {/* Botón Inferior: Icono de Mail -> Copia el Mail cargado */}
+                        <button
+                          type="button"
+                          onClick={() => copiarEmailForwarder(fwd)}
+                          className={`w-full flex items-center justify-center gap-2 font-bold text-xs py-2.5 px-3 rounded-lg transition-colors shadow-sm cursor-pointer ${
+                            copiado
+                              ? "bg-[#3D0411] text-rose-100 ring-2 ring-[#530618]"
+                              : "bg-[#530618] hover:bg-[#3D0411] text-white"
+                          }`}
+                        >
+                          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          </svg>
+                          <span>{copiado ? dicc.mailCopiado : dicc.btnCopiarMail}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
         )}
       </main>
     </div>

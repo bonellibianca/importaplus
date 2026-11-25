@@ -167,7 +167,10 @@ export class CalculadorAduaneroTemplate {
   }
 
   calcularIVA(baseImponible, { ncm }) {
-    const alicuota = (ncm.tipo_bien === 'BK' || ncm.tipo_bien === 'BIT') ? 10.5 : Number(ncm.iva_alicuota || 21);
+    const explicitIva = Number(ncm.iva_alicuota);
+    const alicuota = explicitIva > 0
+      ? explicitIva
+      : (ncm.tipo_bien === 'BK' ? 10.5 : 21);
     const monto = Number((baseImponible * (alicuota / 100)).toFixed(2));
 
     return new GravamenItemBE({

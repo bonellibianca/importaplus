@@ -3,23 +3,23 @@ import { z } from 'zod';
 
 /**
  * Esquema de Validación para Búsqueda Incremental NCM (RF01.1)
- * El usuario busca por nombre coloquial o técnico (< 250ms).
  */
 export const BusquedaNcmSchema = z.object({
   q: z.string()
     .trim()
     .min(2, 'Ingrese al menos 2 caracteres para buscar')
     .max(80, 'La consulta de búsqueda es demasiado extensa')
-    .regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s.,\-_/()]+$/, 'Caracteres no válidos en la búsqueda')
+    .regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s.,\-_/()]+$/, 'Caracteres no válidos en la búsqueda')
 });
 
 /**
  * Esquema de Validación para Simulación Aduanera (RF02 / PN1)
+ * Corrige bug de rechazo en posiciones NCM con sub-sufijos SIM de hasta 15 caracteres.
  */
 export const SimularOperacionSchema = z.object({
   codigoNcm: z.string()
     .trim()
-    .regex(/^\d{4}\.\d{2}\.\d{2}$/, 'Formato de NCM inválido (debe ser ej: 8471.30.12 o 6109.10.00)'),
+    .regex(/^\d{4}\.\d{2}\.\d{2}(?:\.[A-Z0-9]{1,4})?$/, 'Formato de NCM inválido (ej: 8471.30.12)'),
   codigoPais: z.string()
     .trim()
     .length(3, 'El código de país debe ser ISO-3 de 3 letras (ej: CHN, USA, BRA)')
@@ -50,12 +50,13 @@ export const SimularOperacionSchema = z.object({
 
 /**
  * Esquema de Validación para Solicitud de Contacto a Forwarders/Despachantes (PN4)
+ * Corrige bug de incompatibilidad entre formatos de Hash ID (IMP-YYYY-XXXXXX e IMP-XXXXXXXX).
  */
 export const SolicitudLeadSchema = z.object({
   operadorId: z.string()
     .uuid('ID de operador inválido'),
   idCotizacion: z.string()
-    .regex(/^IMP-\d{4}-[A-F0-9]{6,8}$/, 'Formato de ID de cotización inválido (ej: IMP-2026-8F9A2B)')
+    .regex(/^IMP-(?:\d{4}-)?[A-Z0-9]{6,10}$/, 'Formato de ID de cotización inválido (ej: IMP-2026-8F9A2B)')
     .optional()
     .nullable(),
   nombreApellido: z.string()

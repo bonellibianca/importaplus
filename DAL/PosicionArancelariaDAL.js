@@ -99,6 +99,7 @@ class PosicionArancelariaDAL {
                 categoria: item.categoria || 'Mercadería General',
                 capitulo: item.capitulo || codigo.slice(0, 2),
                 arancelExternoComun: aec,
+                alicuotaIva: item.iva_alicuota !== undefined && item.iva_alicuota !== '' ? parseFloat(item.iva_alicuota) : null,
                 esBienDeCapital: item.tipo_bien === 'BK',
                 esInformaticaTelecom: item.tipo_bien === 'BIT',
                 poseeExcepcion: poseeEx,

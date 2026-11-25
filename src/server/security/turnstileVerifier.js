@@ -1,24 +1,34 @@
 import 'server-only';
 
 /**
- * Verificador de Token Cloudflare Turnstile (Anti-Bot Gratuito e Invisible)
- * Valida que las peticiones a /api/v1/simular y /api/v1/leads provengan de usuarios reales.
+ * Determina si Cloudflare Turnstile se encuentra configurado activamente en producción.
+ */
+export function isTurnstileEnforced() {
+  const secretKey = process.env.TURNSTILE_SECRET_KEY;
+  return Boolean(
+    process.env.NODE_ENV === 'production' &&
+    secretKey &&
+    secretKey !== 'tu-secret-key-turnstile' &&
+    !secretKey.startsWith('1x0000')
+  );
+}
+
+/**
+ * Verificador de Token Cloudflare Turnstile (Anti-Bot)
+ * Corrige bug de omisión cuando el cliente no envía turnstileToken y evita fail-open inseguro.
  */
 export async function verifyTurnstileToken(token, clientIp = '') {
-  const secretKey = process.env.TURNSTILE_SECRET_KEY;
-
-  // Si no está configurada la clave secreta o se está en modo de desarrollo, permite la petición
-  if (!secretKey || secretKey.startsWith('1x0000') || process.env.NODE_ENV !== 'production') {
+  if (!isTurnstileEnforced()) {
     return { success: true, bypassed: true };
   }
 
   if (!token) {
-    return { success: false, error: 'Token de seguridad no proporcionado' };
+    return { success: false, error: 'Token de seguridad anti-bot requerido' };
   }
 
   try {
     const formData = new URLSearchParams();
-    formData.append('secret', secretKey);
+    formData.append('secret', process.env.TURNSTILE_SECRET_KEY);
     formData.append('response', token);
     if (clientIp) {
       formData.append('remoteip', clientIp);
@@ -30,6 +40,10 @@ export async function verifyTurnstileToken(token, clientIp = '') {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     });
 
+    if (!response.ok) {
+      return { success: false, error: 'Servicio de verificación no disponible' };
+    }
+
     const data = await response.json();
     return {
       success: Boolean(data.success),
@@ -38,7 +52,6 @@ export async function verifyTurnstileToken(token, clientIp = '') {
     };
   } catch (err) {
     console.error('[TURNSTILE_ERROR]:', err.message);
-    // Modo tolerante ante caída de la red de verificación
-    return { success: true, warning: 'Verificación omitida por fallo de red externo' };
+    return { success: false, error: 'Fallo al verificar token anti-bot' };
   }
 }

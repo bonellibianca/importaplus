@@ -15,11 +15,19 @@ out/
 build/
 dist/
 
-# Environment files
+# Environment & Secret Config Files
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+AdminImportaPlus/Data/appsettings.supabase.json
+
+# .NET Build Outputs & Visual Studio Cache
+.vs/
+**/.vs/
+*.user
+AdminImportaPlus/**/bin/
+AdminImportaPlus/**/obj/
 
 # Debug logs
 npm-debug.log*

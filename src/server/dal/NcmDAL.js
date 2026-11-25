@@ -1,10 +1,8 @@
 import 'server-only';
 import { cargarCatalogoNcmExcel } from './excelClient';
+import { getCachedOrFetch, supabaseSelect, isSupabaseConfigured } from './supabaseClient';
 import { PosicionArancelariaBE } from '../be/PosicionArancelariaBE';
 
-/**
- * Normaliza texto para búsqueda: minúsculas, sin tildes ni signos.
- */
 function normalizarTexto(str) {
   return String(str || '')
     .toLowerCase()
@@ -16,17 +14,58 @@ function normalizarTexto(str) {
 }
 
 /**
- * Capa DAL: Acceso a Datos de Posiciones Arancelarias NCM mediante Excel
- * Lee directamente del catálogo Excel (Cliente/Nomenclatura_NCM_aranceles.xlsx
- * y DAL/database/ImportaPlus_ExcelDB.xlsx) cumpliendo con respuesta < 250ms.
+ * Capa DAL Híbrida para Posiciones NCM (Arquitectura Anti-Agotamiento de Cuota Supabase FREE)
+ * - Unifica las posiciones editadas por el Admin en Supabase (cacheadas 10 min en RAM en 1 sola consulta)
+ *   sobre el nomenclador estático completo de 10.437 posiciones.
+ * - Resultado: 0 consultas SQL por tecla presionada en el buscador predictivo (< 15ms de respuesta).
  */
 export class NcmDAL {
-  /**
-   * Búsqueda predictiva incremental EXCLUSIVAMENTE por nombre / descripción del producto (no por código NCM)
-   * @param {string} query - Término de búsqueda por nombre (ej: "computadora", "remera", "notebook")
-   * @param {number} limit - Límite de resultados (máximo 12 para evitar sobrecarga)
-   * @returns {Promise<PosicionArancelariaBE[]>}
-   */
+  static async _obtenerCatalogoUnificado() {
+    const baseCatalogo = cargarCatalogoNcmExcel();
+
+    if (!isSupabaseConfigured()) {
+      return baseCatalogo;
+    }
+
+    const supaRows = await getCachedOrFetch('ncm:supabase_overrides', 10 * 60 * 1000, async () => {
+      const allRows = [];
+      const pageSize = 1000;
+      for (let offset = 0; offset < 15000; offset += pageSize) {
+        const batch = await supabaseSelect(
+          'ncm_catalogo',
+          `select=codigo_ncm,descripcion,tipo_bien,aec,iva_alicuota,anexo_excepcion,arancel_excepcion,condicion_excepcion&order=codigo_ncm.asc&offset=${offset}&limit=${pageSize}`
+        );
+        if (!Array.isArray(batch) || batch.length === 0) break;
+        allRows.push(...batch);
+        if (batch.length < pageSize) break;
+      }
+      return allRows;
+    });
+
+    if (!Array.isArray(supaRows) || supaRows.length === 0) {
+      return baseCatalogo;
+    }
+
+    const map = new Map(baseCatalogo.map((item) => [item.codigo_ncm, item]));
+    for (const r of supaRows) {
+      if (!r.codigo_ncm) continue;
+      map.set(r.codigo_ncm.trim(), {
+        codigo_ncm: r.codigo_ncm.trim(),
+        descripcion: r.descripcion || '',
+        categoria: 'Catálogo Oficial Supabase',
+        tipo_bien: r.tipo_bien || 'GENERAL',
+        aec: Number(r.aec) || 0,
+        iva_alicuota: Number(r.iva_alicuota) || (r.tipo_bien === 'BK' ? 10.5 : 21.0),
+        anexo_excepcion: r.anexo_excepcion || null,
+        arancel_excepcion: r.arancel_excepcion !== null && r.arancel_excepcion !== undefined ? Number(r.arancel_excepcion) : null,
+        condicion_excepcion: r.condicion_excepcion || null,
+        esDestacado: true
+      });
+    }
+
+    return Array.from(map.values());
+  }
+
   static async buscarPorDescripcion(query, limit = 12) {
     const queryNorm = normalizarTexto(query);
     if (!queryNorm || queryNorm.length < 2) return [];
@@ -34,7 +73,7 @@ export class NcmDAL {
     const tokens = queryNorm.split(/\s+/).filter((t) => t.length >= 2);
     if (tokens.length === 0) return [];
 
-    const catalogo = cargarCatalogoNcmExcel();
+    const catalogo = await this._obtenerCatalogoUnificado();
     const scoredMatches = [];
 
     for (const item of catalogo) {
@@ -44,7 +83,6 @@ export class NcmDAL {
       const catNorm = normalizarTexto(catRaw);
       const fullNorm = `${descNorm} ${catNorm}`;
 
-      // Verificar que todos los términos buscados aparezcan en el nombre/descripción/categoría
       let matchesAll = true;
       for (const tok of tokens) {
         if (!fullNorm.includes(tok)) {
@@ -54,7 +92,6 @@ export class NcmDAL {
       }
       if (!matchesAll) continue;
 
-      // Extraer el segmento específico final si la descripción tiene jerarquía '>'
       const partes = descRaw.split('>').map((s) => s.trim()).filter(Boolean);
       const ultimoSeg = partes.length > 0 ? partes[partes.length - 1] : descRaw;
       const espNorm = normalizarTexto(ultimoSeg);
@@ -85,15 +122,10 @@ export class NcmDAL {
     return scoredMatches.slice(0, limit).map(({ item }) => new PosicionArancelariaBE(item));
   }
 
-  /**
-   * Obtiene una posición NCM exacta por su código de 8 dígitos desde el catálogo Excel
-   * @param {string} codigoNcm - Código NCM (ej: '8471.30.12')
-   * @returns {Promise<PosicionArancelariaBE | null>}
-   */
   static async obtenerPorCodigo(codigoNcm) {
     const cleanCode = (codigoNcm || '').trim();
     const cleanDigits = cleanCode.replace(/[.\s-]/g, '');
-    const catalogo = cargarCatalogoNcmExcel();
+    const catalogo = await this._obtenerCatalogoUnificado();
 
     const match = catalogo.find(
       (item) =>

@@ -45,15 +45,39 @@ class ExcelDataLoaderDAL {
     return null;
   }
 
+  static _dividirLineaCsv(line, delimiter = ';') {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (ch === delimiter && !inQuotes) {
+        result.push(current);
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+    result.push(current);
+    return result;
+  }
+
   static parsearCsvTexto(csvText) {
     const clean = (csvText || '').replace(/^\uFEFF/, '');
     const lines = clean.split(/\r?\n/).filter((l) => l.trim().length > 0);
     if (lines.length < 2) return [];
     const delimiter = lines[0].includes(';') ? ';' : ',';
-    const headers = lines[0].split(delimiter).map((h) => h.trim());
+    const headers = this._dividirLineaCsv(lines[0], delimiter).map((h) => h.trim());
     const rows = [];
     for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(delimiter);
+      const cols = this._dividirLineaCsv(lines[i], delimiter);
       const obj = {};
       headers.forEach((h, idx) => {
         obj[h] = (cols[idx] || '').trim();
@@ -141,6 +165,42 @@ class ExcelDataLoaderDAL {
     const costoUnit = be.costoUnitarioNacionalizado || be.resumenEconomico?.costoUnitarioFinalUSD || 0;
     const tcBna = be.cotizacionBna || be.resumenEconomico?.tipoCambioBNA || 1420.5;
     const costoArs = be.costoTotalARS || be.resumenEconomico?.costoTotalEstimadoARS || 0;
+
+    if (typeof window !== 'undefined' && window.ExcelExportHelper) {
+      const desglose = Array.isArray(be.desgloseTributario) && be.desgloseTributario.length > 0
+        ? be.desgloseTributario
+        : [
+            { concepto: 'Derecho de Importación (DIE)', alicuota: `${be.alicuotaDie || 0}%`, montoUSD: Number(be.montoDie || 0) },
+            { concepto: 'Tasa de Estadística (Dec. 99/2019)', alicuota: `${be.alicuotaEstadistica || 0}%`, montoUSD: Number(be.montoEstadistica || 0) },
+            { concepto: 'Base Imponible Interior', alicuota: 'CIF + DIE + Estadística', montoUSD: Number(be.baseImponibleInterior || 0), esSubtotal: true },
+            { concepto: 'IVA Aduanero DGA', alicuota: `${be.alicuotaIva || 21}%`, montoUSD: Number(be.montoIva || 0) },
+            { concepto: 'Percepción IVA Adicional (RG 2281)', alicuota: `${be.alicuotaIvaAdicional || 20}%`, montoUSD: Number(be.montoIvaAdicional || 0) },
+            { concepto: 'Percepción Imp. Ganancias (RG 2281)', alicuota: `${be.alicuotaGanancias || 6}%`, montoUSD: Number(be.montoGanancias || 0) },
+            { concepto: 'Arancel SIM + Digitalización', alicuota: 'Cargo Fijo Oficial', montoUSD: Number(be.totalSimDigitalizacion || 38) }
+          ];
+
+      window.ExcelExportHelper.exportarComprobanteXlsx({
+        idCotizacion,
+        fechaEmision: be.fechaHora,
+        descripcion,
+        pais,
+        regimen: be.tratamientoArancelario || be.fichaProducto?.regimenAplicado || 'Régimen General Aduanero',
+        cantidad,
+        fobUnit,
+        fobTotal,
+        flete,
+        seguro,
+        cif,
+        desglose,
+        incidenciaPct: be.ratioSobrecostoPct ?? 0,
+        totalGrav: totalGrav,
+        costoNac,
+        costoUnit,
+        tcBna,
+        costoArs
+      });
+      return;
+    }
 
     const filas = [
       ['IMPORTA+ | COMPROBANTE OFICIAL DE SIMULACIÓN ADUANERA (ARCA / DGA)', '', ''],

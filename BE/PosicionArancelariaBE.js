@@ -11,6 +11,7 @@ class PosicionArancelariaBE {
     categoria = '',
     capitulo = '',
     arancelExternoComun = 0,
+    alicuotaIva = null,
     esBienDeCapital = false,
     esInformaticaTelecom = false,
     poseeExcepcion = false,
@@ -25,6 +26,9 @@ class PosicionArancelariaBE {
     this.arancelExternoComun = parseFloat(arancelExternoComun) || 0;
     this.esBienDeCapital = Boolean(esBienDeCapital);
     this.esInformaticaTelecom = Boolean(esInformaticaTelecom);
+    this.alicuotaIva = alicuotaIva !== null && alicuotaIva !== undefined && alicuotaIva !== ''
+      ? parseFloat(alicuotaIva)
+      : (this.esBienDeCapital ? 10.5 : 21.0);
     this.poseeExcepcion = Boolean(poseeExcepcion);
     this.anexoExcepcion = anexoExcepcion || '';
     this.arancelAplicableExcepcion = parseFloat(arancelAplicableExcepcion) || 0;

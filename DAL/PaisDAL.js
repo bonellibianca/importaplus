@@ -40,7 +40,8 @@ class PaisDAL {
 
   async obtenerPorCodigo(codigo) {
     await this._cargarDesdeExcel();
-    return this._cachePaises.find(p => p.codigo === codigo) || this._cachePaises[0];
+    const clean = String(codigo || '').trim().toUpperCase();
+    return this._cachePaises.find(p => String(p.codigo || '').toUpperCase() === clean) || null;
   }
 }
 

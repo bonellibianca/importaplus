@@ -1,5 +1,11 @@
 {
   "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/v1/health",
+      "schedule": "0 8 */5 * *"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

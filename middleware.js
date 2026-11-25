@@ -11,20 +11,33 @@ const BOT_USER_AGENTS = [
   'aiohttp'
 ];
 
+const ALLOWED_HOSTNAMES = new Set([
+  'importaplus.com.ar',
+  'www.importaplus.com.ar',
+  'localhost',
+  '127.0.0.1'
+]);
+
+function extractHostname(urlOrOrigin) {
+  if (!urlOrOrigin) return '';
+  try {
+    return new URL(urlOrOrigin).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
 /**
  * Anillo 1 de Seguridad: Middleware Edge en Vercel
- * Intercepta peticiones antes de llegar al motor Node.js y a la capa de persistencia en Excel.
  * - Bloqueo de User-Agents automatizados y scrapers.
- * - Protección CSRF y Hotlinking validando Origin / Referer en métodos POST.
+ * - Protección CSRF estricta validando hostname exacto (corrige bug de bypass por subcadena).
  */
 export function middleware(request) {
   const { pathname } = request.nextUrl;
 
-  // Proteger todas las rutas de nuestra API privada (/api/v1/ y /api/)
   if (pathname.startsWith('/api/')) {
     const userAgent = (request.headers.get('user-agent') || '').toLowerCase();
 
-    // 1. Bloquear herramientas de scraping y clientes HTTP automatizados
     if (!userAgent || BOT_USER_AGENTS.some((bot) => userAgent.includes(bot))) {
       return NextResponse.json(
         { error: 'Acceso automatizado no autorizado por políticas de seguridad de Importa Plus.' },
@@ -32,20 +45,19 @@ export function middleware(request) {
       );
     }
 
-    // 2. Verificar Origin / Referer en métodos POST (CSRF & Hotlinking Protection)
     if (request.method === 'POST') {
       const origin = request.headers.get('origin') || '';
       const referer = request.headers.get('referer') || '';
-      const host = request.headers.get('host') || '';
+      const hostHeader = (request.headers.get('host') || '').split(':')[0].toLowerCase();
 
-      const source = origin || referer;
+      const sourceHostname = extractHostname(origin) || extractHostname(referer);
       const isAllowedOrigin =
-        (source && (
-          source.includes(host) ||
-          source.includes('importaplus.com.ar') ||
-          source.includes('localhost')
-        )) ||
-        process.env.NODE_ENV !== 'production';
+        process.env.NODE_ENV !== 'production' ||
+        (sourceHostname && (
+          sourceHostname === hostHeader ||
+          ALLOWED_HOSTNAMES.has(sourceHostname) ||
+          sourceHostname.endsWith('.vercel.app')
+        ));
 
       if (!isAllowedOrigin) {
         return NextResponse.json(

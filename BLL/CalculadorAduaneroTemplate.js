@@ -228,11 +228,13 @@ class CalculadorAduaneroTemplate {
    * @param {Object} parametros 
    */
   calcularImpuestosInteriores(be, parametros) {
-    const alicuotaIva = be.posicion.esBienDeCapital ? parametros.ivaReducidoBKPct : parametros.ivaGeneralPct;
+    const alicuotaIva = (be.posicion && Number(be.posicion.alicuotaIva) > 0)
+      ? Number(be.posicion.alicuotaIva)
+      : (be.posicion.esBienDeCapital ? parametros.ivaReducidoBKPct : parametros.ivaGeneralPct);
     be.alicuotaIva = alicuotaIva;
     be.montoIva = +(be.baseImponibleInterior * (alicuotaIva / 100)).toFixed(2);
 
-    const alicuotaIvaAdic = be.posicion.esBienDeCapital ? parametros.percepcionIvaReducidoPct : parametros.percepcionIvaGeneralPct;
+    const alicuotaIvaAdic = alicuotaIva === 10.5 ? parametros.percepcionIvaReducidoPct : parametros.percepcionIvaGeneralPct;
     be.alicuotaIvaAdicional = alicuotaIvaAdic;
     be.montoIvaAdicional = +(be.baseImponibleInterior * (alicuotaIvaAdic / 100)).toFixed(2);
 

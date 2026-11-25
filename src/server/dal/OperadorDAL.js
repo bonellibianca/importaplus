@@ -1,9 +1,10 @@
 import 'server-only';
 import { cargarOperadoresExcel, guardarSolicitudContactoEnExcel } from './excelClient';
+import { supabaseInsert, isSupabaseConfigured } from './supabaseClient';
 import { OperadorBE } from '../be/OperadorBE';
 
 /**
- * Capa DAL: Acceso a Datos de Despachantes y Forwarders Matriculados (PN4 - Persistencia en Excel)
+ * Capa DAL: Operadores y registro protegido de solicitudes de contacto en Supabase
  */
 export class OperadorDAL {
   static async obtenerActivos(aduanaNombre = '') {
@@ -21,10 +22,22 @@ export class OperadorDAL {
     return list.map((op) => new OperadorBE(op));
   }
 
-  /**
-   * Registra la solicitud de contacto con el operador logístico directamente en la planilla Excel
-   */
   static async guardarSolicitudContacto(datosLead) {
+    if (isSupabaseConfigured()) {
+      const res = await supabaseInsert('solicitudes_contacto', {
+        operador_id: datosLead.operadorId || null,
+        id_cotizacion: datosLead.idCotizacion || null,
+        nombre_apellido: datosLead.nombreApellido,
+        empresa: datosLead.empresa || null,
+        email: datosLead.email,
+        telefono: datosLead.telefono,
+        comentarios: datosLead.comentarios || null
+      });
+      if (res.ok) {
+        return { exito: true, leadId: `SUPA-LEAD-${Date.now()}` };
+      }
+    }
+
     return guardarSolicitudContactoEnExcel(datosLead);
   }
 }

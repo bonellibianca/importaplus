@@ -173,10 +173,13 @@
   <script src="BE/PuertoBE.js"></script>
   <script src="BE/CalculadoraArancelariaBE.js"></script>
 
-  <!-- 2. CAPA DAL (Data Access Layer - Excel Persistence Engine & Repositorios) -->
+  <!-- 2. CAPA DAL (Data Access Layer - Supabase Free Cache + Excel Persistence Engine) -->
   <script src="datos_excels.js"></script>
+  <script src="DAL/database/web_sync.js"></script>
   <script src="DAL/database/ExcelDatabaseEmbedded.js"></script>
+  <script src="DAL/ExcelExportHelper.js"></script>
   <script src="DAL/ExcelDataLoaderDAL.js"></script>
+  <script src="DAL/SupabaseClientDAL.js"></script>
   <script src="DAL/PaisDAL.js"></script>
   <script src="DAL/PosicionArancelariaDAL.js"></script>
   <script src="DAL/PuertoDAL.js"></script>
@@ -189,7 +192,8 @@
   <script src="BLL/CalculadorAduaneroTemplate.js"></script>
   <script src="BLL/CalculadoraArancelariaBLL.js"></script>
 
-  <!-- 4. CAPA GUI (Graphical User Interface - Patrón State & Controlador) -->
+  <!-- 4. CAPA GUI (Graphical User Interface - Patrón Observer Multi-idioma + Patrón State) -->
+  <script src="GUI/observers/IdiomaObserver.js"></script>
   <script src="GUI/states/SimuladorStates.js"></script>
   <script src="GUI/controllers/SimuladorController.js"></script>
 

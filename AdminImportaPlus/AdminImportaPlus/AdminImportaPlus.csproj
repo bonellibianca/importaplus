@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="GUI\FrmLogin.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="GUI\FrmPanelAdmin.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="GUI\FrmAlertaDigitoVerificador.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="GUI\FrmRestablecerPassword.cs">
+      <SubType>Form</SubType>
+    </Compile>
+  </ItemGroup>
+
+</Project>

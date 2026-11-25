@@ -1,22 +1,16 @@
 /**
  * Capa GUI (Graphical User Interface)
- * Controlador Principal: SimuladorController (Context del Patrón STATE)
- * 
- * Orquesta la aplicación respetando las 4 capas y patrones de diseño:
- * - Capa BE: CalculadoraArancelariaBE, PosicionArancelariaBE, PaisBE, PuertoBE, GravamenItemBE
- * - Capa BLL: CalculadoraArancelariaBLL (Template Method), PosicionArancelariaBLL, PaisBLL, PuertoBLL
- * - Capa DAL: CalculadoraArancelariaDAL, PosicionArancelariaDAL, PaisDAL, PuertoDAL, ExcelDataLoaderDAL
- * - Capa GUI: Patrón STATE (HeroState, FormularioState, ResultadosState, etc.)
+ * Controlador Principal: SimuladorController
+ * - Context del Patrón STATE (Navegación SPA)
+ * - Observador Concreto del Patrón OBSERVER (Multi-idioma Español / Inglés)
  */
 class SimuladorController {
   constructor() {
-    // 1. Instanciación desacoplada de la Capa de Lógica de Negocio (BLL)
     this.paisBLL = new window.PaisBLL();
     this.posicionBLL = new window.PosicionArancelariaBLL();
     this.calculadoraBLL = new window.CalculadoraArancelariaBLL();
     this.puertoBLL = new window.PuertoBLL();
 
-    // 2. Registro de Estados de Navegación SPA (Patrón STATE)
     this.states = {
       hero: new window.HeroState(),
       form: new window.FormularioState(),
@@ -28,9 +22,9 @@ class SimuladorController {
     };
     this.currentState = this.states['hero'];
 
-    // 3. Estado reactivo de datos de la sesión (Inicializado en blanco y valores numéricos en 0)
     this.state = {
       view: 'hero',
+      idioma: window.idiomaSubject ? window.idiomaSubject.obtenerIdioma() : 'es',
       form: {
         producto: '',
         paisOrigen: '',
@@ -51,6 +45,8 @@ class SimuladorController {
       ncmSugerencias: [],
       paisesCatalogo: [],
       puertosCatalogo: [],
+      forwardersCatalogo: [],
+      mailCopiadoId: null,
       calculadoraBE: null,
       selectedPlan: null,
       mapInstance: null
@@ -58,13 +54,53 @@ class SimuladorController {
   }
 
   /**
-   * Inicializa catálogos y datos persistentes desde la BLL / DAL (Excel)
-   * Mantiene el campo Producto a Importar y País de origen en blanco al iniciar.
+   * Método del Patrón GoF OBSERVER: invocado automáticamente por IdiomaSubject al alternar ES / EN
    */
+  actualizarIdioma(nuevoIdioma) {
+    this.state.idioma = nuevoIdioma;
+    this.render();
+    if (this.state.view === 'ports' && this.currentState.onEnter) {
+      this.currentState.onEnter(this);
+    }
+  }
+
+  t(clave) {
+    if (window.idiomaSubject) {
+      return window.idiomaSubject.t(clave);
+    }
+    return clave;
+  }
+
+  alternarIdioma() {
+    if (window.idiomaSubject) {
+      window.idiomaSubject.alternarIdioma();
+    }
+  }
+
+  /**
+   * Sanitización anti-XSS para atributos y nodos HTML (corrige vulnerabilidad XSS en plantillas)
+   */
+  escapeHtml(valor) {
+    return String(valor ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   async inicializar() {
+    // Suscribir este controlador como Observador Concreto del Sujeto de Idioma
+    if (window.idiomaSubject) {
+      window.idiomaSubject.suscribir(this);
+    }
+
     try {
       this.state.paisesCatalogo = await this.paisBLL.obtenerPaises();
       this.state.puertosCatalogo = await this.puertoBLL.obtenerPuertos();
+      if (window.SupabaseClientDAL) {
+        this.state.forwardersCatalogo = await window.SupabaseClientDAL.obtenerForwardersGrilla();
+      }
       await this.posicionBLL.obtenerTodas();
       if (this.calculadoraBLL && this.calculadoraBLL.calculadoraDAL) {
         this.calculadoraBLL.calculadoraDAL.obtenerParametrosRegulatorios().catch(() => {});
@@ -75,10 +111,6 @@ class SimuladorController {
     this.render();
   }
 
-  /**
-   * Transición de Estado (Patrón STATE)
-   * @param {string} newView 
-   */
   setView(newView) {
     this.state.view = newView;
     this.currentState = this.states[newView] || this.states['hero'];
@@ -89,9 +121,6 @@ class SimuladorController {
     }
   }
 
-  /**
-   * Renderiza delegando en el objeto del Estado Actual (Patrón STATE)
-   */
   render() {
     const app = document.getElementById('app');
     if (!app || !this.currentState) return;
@@ -101,17 +130,44 @@ class SimuladorController {
     }
   }
 
-  /**
-   * Utilidad de formato de moneda argentina
-   */
   formatNumber(num) {
     const val = parseFloat(num) || 0;
-    return val.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const locale = this.state.idioma === 'en' ? 'en-US' : 'es-AR';
+    return val.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
-  /**
-   * Selección de producto por nombre (sin insertar código NCM en el campo de texto)
-   */
+  redirigirWhatsappForwarder(idx) {
+    const fwd = (this.state.forwardersCatalogo || [])[idx];
+    if (!fwd || !fwd.whatsapp) return;
+    const digits = String(fwd.whatsapp).replace(/[^0-9]/g, '');
+    if (!digits) return;
+    const msg = encodeURIComponent(this.t('waMensajeDefault'));
+    window.open(`https://wa.me/${digits}?text=${msg}`, '_blank', 'noopener,noreferrer');
+  }
+
+  async copiarMailForwarder(idx) {
+    const fwd = (this.state.forwardersCatalogo || [])[idx];
+    if (!fwd || !fwd.email) return;
+    try {
+      await navigator.clipboard.writeText(fwd.email);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = fwd.email;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    this.state.mailCopiadoId = fwd.id;
+    this.render();
+    setTimeout(() => {
+      if (this.state.mailCopiadoId === fwd.id) {
+        this.state.mailCopiadoId = null;
+        this.render();
+      }
+    }, 2200);
+  }
+
   seleccionarNCM(idx) {
     if (window._ncmCache && window._ncmCache[idx]) {
       this.state.posicionSeleccionada = window._ncmCache[idx];
@@ -123,9 +179,6 @@ class SimuladorController {
     }
   }
 
-  /**
-   * Selección de país desde el buscador incremental de 195 países
-   */
   seleccionarPais(idx) {
     if (window._paisesCache && window._paisesCache[idx]) {
       this.state.paisSeleccionado = window._paisesCache[idx];
@@ -140,9 +193,6 @@ class SimuladorController {
     }
   }
 
-  /**
-   * Alterna el desplegable de la descripción del producto con botón
-   */
   toggleDescripcionProducto() {
     this.state.mostrarDescripcionProducto = !this.state.mostrarDescripcionProducto;
     const panel = document.getElementById('panel-descripcion-producto');
@@ -151,17 +201,14 @@ class SimuladorController {
       panel.classList.toggle('hidden', !this.state.mostrarDescripcionProducto);
       if (btnTexto) {
         btnTexto.textContent = this.state.mostrarDescripcionProducto
-          ? 'Ocultar descripción del producto ▲'
-          : 'Ver descripción del producto ▼';
+          ? this.t('ocultarDesc')
+          : this.t('verDesc');
       }
     } else {
       this.render();
     }
   }
 
-  /**
-   * Resuelve el país seleccionado o escrito por el usuario entre los 195 países
-   */
   resolverPaisActual() {
     if (this.state.paisSeleccionado) return this.state.paisSeleccionado;
     const texto = (this.state.form.paisOrigen || '').trim().toLowerCase();
@@ -181,9 +228,6 @@ class SimuladorController {
     );
   }
 
-  /**
-   * Cálculo paramétrico de logística internacional (Regla supletoria legal)
-   */
   estimarLogistica() {
     const cant = parseInt(this.state.form.cantidad) || 0;
     const precio = parseFloat(this.state.form.precioUnidad) || 0;
@@ -195,9 +239,6 @@ class SimuladorController {
     this.render();
   }
 
-  /**
-   * Ejecuta la liquidación delegando en la BLL (Template Method)
-   */
   async ejecutarLiquidacion() {
     try {
       const f = this.state.form;
@@ -212,13 +253,13 @@ class SimuladorController {
       }
 
       if (!pos) {
-        alert('Por favor escribí y seleccioná un producto a importar.');
+        alert(this.t('alertProducto'));
         return;
       }
 
       const pais = this.resolverPaisActual();
       if (!pais) {
-        alert('Por favor escribí y seleccioná un país de origen.');
+        alert(this.t('alertPais'));
         return;
       }
 
@@ -226,11 +267,11 @@ class SimuladorController {
       const precioVal = parseFloat(f.precioUnidad) || 0;
 
       if (cantidadVal <= 0) {
-        alert('La cantidad de unidades debe ser mayor a 0.');
+        alert(this.t('alertCantidad'));
         return;
       }
       if (precioVal <= 0) {
-        alert('El valor por unidad (USD FOB) debe ser mayor a 0.');
+        alert(this.t('alertFob'));
         return;
       }
 
@@ -249,13 +290,10 @@ class SimuladorController {
       this.state.calculadoraBE = await this.calculadoraBLL.liquidar(be);
       this.setView('results');
     } catch (err) {
-      alert('Error al calcular: ' + err.message);
+      alert('Error: ' + err.message);
     }
   }
 
-  /**
-   * Inicializa el mapa interactivo de puertos con Leaflet
-   */
   initMap() {
     const mapEl = document.getElementById('map');
     if (!mapEl || typeof L === 'undefined') return;
@@ -274,8 +312,8 @@ class SimuladorController {
     });
     this.state.mapInstance = map;
 
-    // Capa de Google Maps (100% gratuita, sin bloqueo 403 en file:/// ni HTTP) con respaldo CartoDB
-    const googleLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}', {
+    const hl = this.state.idioma === 'en' ? 'en' : 'es';
+    const googleLayer = L.tileLayer(`https://{s}.google.com/vt/lyrs=m&hl=${hl}&x={x}&y={y}&z={z}`, {
       subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
       attribution: '&copy; Google Maps',
       maxZoom: 20
@@ -307,7 +345,7 @@ class SimuladorController {
     const puertos = this.state.puertosCatalogo || [];
     const bounds = [];
 
-    puertos.forEach(p => {
+    puertos.forEach((p) => {
       const lat = parseFloat(p.lat);
       const lng = parseFloat(p.lng);
       if (isNaN(lat) || isNaN(lng)) return;
@@ -344,10 +382,7 @@ class SimuladorController {
             box-shadow: 0 4px 10px rgba(0,0,0,0.35);
             border: 2px solid #FFFFFF;
             cursor: pointer;
-            transition: transform 0.2s ease;
-          " onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">
-            ${icono}
-          </div>
+          ">${icono}</div>
         `,
         iconSize: [32, 32],
         iconAnchor: [16, 16],
@@ -355,30 +390,24 @@ class SimuladorController {
       });
 
       const marker = L.marker([lat, lng], { icon: customIcon }).addTo(map);
-
       const popupHtml = `
         <div style="font-family: 'Inter', system-ui, sans-serif; padding: 2px; min-width: 200px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
             <span style="font-size: 10px; font-weight: 700; color: ${colorBg}; text-transform: uppercase;">
-              ${p.tipo || p.type}
+              ${this.escapeHtml(p.tipo || p.type)}
             </span>
             <span style="font-size: 9px; font-weight: 600; background: #F1F5F9; color: #475569; padding: 2px 6px; border-radius: 4px;">
-              ${p.id ? p.id.toUpperCase() : 'ADUANA'}
+              ${this.escapeHtml(p.id ? p.id.toUpperCase() : 'ADUANA')}
             </span>
           </div>
           <h4 style="margin: 0 0 4px 0; font-size: 13px; font-weight: 800; color: #0F172A; line-height: 1.2;">
-            ${p.nombre || p.name}
+            ${this.escapeHtml(p.nombre || p.name)}
           </h4>
           <p style="margin: 0 0 6px 0; font-size: 11px; color: #64748B; line-height: 1.35;">
-            ${p.descripcion || p.desc}
+            ${this.escapeHtml(p.descripcion || p.desc)}
           </p>
-          <div style="font-size: 10px; color: #334155; border-top: 1px solid #E2E8F0; padding-top: 6px; display: flex; justify-content: space-between; align-items: center;">
-            <span><b>Operador:</b> ${p.operador || 'ARCA - DGA'}</span>
-            <a href="https://www.google.com/maps/search/?api=1&query=${lat},${lng}" target="_blank" rel="noopener noreferrer" style="color: #530618; font-weight: 700; text-decoration: none;">Google Maps ↗</a>
-          </div>
         </div>
       `;
-
       marker.bindPopup(popupHtml);
     });
 

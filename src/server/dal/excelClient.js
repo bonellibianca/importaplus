@@ -262,8 +262,8 @@ function syncExcelWorkbookWithSheet(csvFilePath, headers) {
     const sheetName = csvFilePath.endsWith('simulaciones.csv')
       ? 'Simulaciones'
       : csvFilePath.endsWith('solicitudes_contacto.csv')
-      ? 'Solicitudes_Contacto'
-      : null;
+        ? 'Solicitudes_Contacto'
+        : null;
     if (!sheetName) return;
 
     const rows = parseCsvFile(csvFilePath);
@@ -322,7 +322,9 @@ export function cargarCatalogoNcmExcel() {
         categoria: r.categoria || 'Mercadería General',
         tipo_bien: tipoBien,
         aec,
-        iva_alicuota: tipoBien === 'BK' || tipoBien === 'BIT' ? 10.5 : 21.0,
+        iva_alicuota: r.iva_alicuota !== undefined && r.iva_alicuota !== ''
+          ? parseFloat(r.iva_alicuota)
+          : (tipoBien === 'BK' || tipoBien === 'BIT' ? 10.5 : 21.0),
         anexo_excepcion: anexo || null,
         arancel_excepcion: anexo && arancelExNum !== null ? arancelExNum : null,
         condicion_excepcion: r.condicion_excepcion || r.condicion || null,
@@ -494,7 +496,7 @@ export async function obtenerCotizacionDolarOficial() {
         return cachedCotizacionDolar;
       }
     }
-  } catch (err) {}
+  } catch (err) { }
 
   return 1420.50;
 }
