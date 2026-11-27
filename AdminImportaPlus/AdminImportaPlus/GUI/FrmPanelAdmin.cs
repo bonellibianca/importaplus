@@ -375,21 +375,8 @@ public partial class FrmPanelAdmin : Form
 
     private void ActualizarEtiquetaEstadoSupabaseInicial(SupabaseConfigBE cfg)
     {
-        if (cfg.EstaConfiguradoEnNube)
-        {
-            lblResultadoSupa.Text = $"✔ Proyecto {cfg.SupabaseUrl} configurado con Secret Key activa.";
-            lblResultadoSupa.ForeColor = TemaImportaPlus.EmeraldGreen;
-        }
-        else if (cfg.EsPublishableEnCampoSecreto)
-        {
-            lblResultadoSupa.Text = "⚠ Detectada clave 'sb_publishable_...' en el campo SERVICE_ROLE / SECRET KEY. Para que los borrados y altas se guarden en Supabase Cloud, pegá tu clave secreta real ('sb_secret_...').";
-            lblResultadoSupa.ForeColor = TemaImportaPlus.BrandPrimary;
-        }
-        else
-        {
-            lblResultadoSupa.Text = $"ℹ URL y Publishable Key activas ({cfg.SupabaseUrl}). Pegá tu clave 'sb_secret_...' en SERVICE_ROLE / SECRET KEY para habilitar escritura y borrado directo en Supabase Cloud.";
-            lblResultadoSupa.ForeColor = TemaImportaPlus.TextBody;
-        }
+        lblResultadoSupa.Text = $"✔ Conectado a Supabase Cloud ({cfg.SupabaseUrl}). Cualquier usuario autenticado con permiso aplica los cambios directamente en la nube sin requerir Secret Key.";
+        lblResultadoSupa.ForeColor = TemaImportaPlus.EmeraldGreen;
     }
 
     // =========================================================================
@@ -571,7 +558,7 @@ public partial class FrmPanelAdmin : Form
         var verif = SeguridadYDigitoVerificadorBLL.VerificarBaseCompleta(_db);
 
         ActualizarCabeceraUsuarioYPerfil();
-        string modo = _gestor.Dal.Config.EstaConfiguradoEnNube ? "Supabase Cloud" : "Base Local + Espejo Web";
+        string modo = _gestor.Dal.ConectadoDirectoNube ? "Supabase Cloud" : "Base Local + Espejo Web";
         lblBadgeEstadoHeader.Text = verif.SaltoDetectado
             ? $"● {modo}  ·  ⚠ Alerta DVH/DVV ({verif.Alteraciones.Count} cambio/s)"
             : $"● {modo}  ·  ✔ Integridad DVH/DVV Verificada";

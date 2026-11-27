@@ -1,4 +1,4 @@
-{
+﻿{
   "AdminUsuarios": [
     {
       "id": "99999999-9999-9999-9999-999999999999",
@@ -10,22 +10,12 @@
       "bloqueado": false,
       "activo": true,
       "perfil_id": "30000002-0000-0000-0000-000000000001",
-      "ultimo_acceso": null,
+      "ultimo_acceso": "2026-11-27T22:09:28.7893775+00:00",
       "password_updated_at": "2026-11-24T22:33:49.5336012+00:00",
       "dvh": "0b5dc9c0dfa0653ee9c583e0693c6e9f051d4e0c2b5350e4b22af79b104f8db5"
     }
   ],
   "Forwarders": [
-    {
-      "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-      "nombre": "Bonelli & Asociados Global Logistics",
-      "imagen_url": "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=600&q=80",
-      "whatsapp": "+5491143218800",
-      "email": "contacto@importaplus.com.ar",
-      "orden": 1,
-      "activo": true,
-      "dvh": "b84d170d2603e6f9c212d4e7c720c05dcf2b0ab477f001e5b398f9b8bc6f5c83"
-    },
     {
       "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
       "nombre": "NEXA Ocean & Air Forwarding",
@@ -35,39 +25,9 @@
       "orden": 2,
       "activo": true,
       "dvh": "f8e27068a790ef17f7733995d5b3c76a09abac9cd4f1d4857b4c73257a106a7e"
-    },
-    {
-      "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
-      "nombre": "Ezeiza Express Cargo & Customs",
-      "imagen_url": "https://images.unsplash.com/photo-1570710891163-6d3b5c47248b?auto=format&fit=crop&w=600&q=80",
-      "whatsapp": "+5491144802233",
-      "email": "ezeiza@importaplus.com.ar",
-      "orden": 3,
-      "activo": true,
-      "dvh": "4e873bca6d1623d8b035566e8c8882da18a4292745e88c1c27f0a4327d330678"
-    },
-    {
-      "id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
-      "nombre": "Andina Multimodal Internacional",
-      "imagen_url": "https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=600&q=80",
-      "whatsapp": "+5492614205544",
-      "email": "mendoza@importaplus.com.ar",
-      "orden": 4,
-      "activo": true,
-      "dvh": "5a4c7a23b492873e0c2b631ba62e8c892e4972dd24ce9192d591d9bb81001762"
     }
   ],
   "Despachantes": [
-    {
-      "id": "e1111111-1111-1111-1111-111111111111",
-      "nombre": "Bonelli & Asociados Despachantes DGA",
-      "imagen_url": "https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=600&q=80",
-      "whatsapp": "+5491143218800",
-      "email": "despachos@importaplus.com.ar",
-      "orden": 1,
-      "activo": true,
-      "dvh": "5253e690b370b8d73f1ceaea6926828fe5ee2c0012f0807a361cdcb0e759c7d5"
-    },
     {
       "id": "e2222222-2222-2222-2222-222222222222",
       "nombre": "Ezeiza Express Despachos Aduaneros",
@@ -87,16 +47,6 @@
       "orden": 3,
       "activo": true,
       "dvh": "0cef72cbb00d099dfbe60c4cbfc28c93c4bf97820e1882ed22c9e902d6130f72"
-    },
-    {
-      "id": "e4444444-4444-4444-4444-444444444444",
-      "nombre": "Andes & Pacífico Despachantes Matriculados",
-      "imagen_url": "https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=600&q=80",
-      "whatsapp": "+5492614205544",
-      "email": "cuyo@importaplus.com.ar",
-      "orden": 4,
-      "activo": true,
-      "dvh": "dc74f2298eaaaddd13a2191ab6880c2a5adf34ee3e2e70b27e88a3743d755df2"
     }
   ],
   "PuertosAduanas": [
@@ -306,26 +256,14 @@
           }
         }
       ],
-      "updated_at": "2026-11-27T21:40:18.1876058+00:00",
+      "updated_at": "2026-11-27T22:10:18.6439743+00:00",
       "updated_by": "Admin"
     },
     {
       "tabla_nombre": "forwarders",
-      "dvv": "b71a3a521b4cd132f68e6a7ceac5ce01440b04a94431dbdb445b52526b5e627d",
-      "cantidad_registros": 4,
+      "dvv": "ad83ec55a67af77fad379a2dc67fbd61a278f60b17eb719966ce56fd8b4f54db",
+      "cantidad_registros": 1,
       "snapshot_control": [
-        {
-          "pk": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-          "dvh": "b84d170d2603e6f9c212d4e7c720c05dcf2b0ab477f001e5b398f9b8bc6f5c83",
-          "campos": {
-            "nombre": "Bonelli & Asociados Global Logistics",
-            "imagen_url": "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=600&q=80",
-            "whatsapp": "+5491143218800",
-            "email": "contacto@importaplus.com.ar",
-            "orden": "1",
-            "activo": "true"
-          }
-        },
         {
           "pk": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
           "dvh": "f8e27068a790ef17f7733995d5b3c76a09abac9cd4f1d4857b4c73257a106a7e",
@@ -337,52 +275,16 @@
             "orden": "2",
             "activo": "true"
           }
-        },
-        {
-          "pk": "cccccccc-cccc-cccc-cccc-cccccccccccc",
-          "dvh": "4e873bca6d1623d8b035566e8c8882da18a4292745e88c1c27f0a4327d330678",
-          "campos": {
-            "nombre": "Ezeiza Express Cargo & Customs",
-            "imagen_url": "https://images.unsplash.com/photo-1570710891163-6d3b5c47248b?auto=format&fit=crop&w=600&q=80",
-            "whatsapp": "+5491144802233",
-            "email": "ezeiza@importaplus.com.ar",
-            "orden": "3",
-            "activo": "true"
-          }
-        },
-        {
-          "pk": "dddddddd-dddd-dddd-dddd-dddddddddddd",
-          "dvh": "5a4c7a23b492873e0c2b631ba62e8c892e4972dd24ce9192d591d9bb81001762",
-          "campos": {
-            "nombre": "Andina Multimodal Internacional",
-            "imagen_url": "https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=600&q=80",
-            "whatsapp": "+5492614205544",
-            "email": "mendoza@importaplus.com.ar",
-            "orden": "4",
-            "activo": "true"
-          }
         }
       ],
-      "updated_at": "2026-11-27T21:40:18.1876058+00:00",
+      "updated_at": "2026-11-27T22:10:18.6439743+00:00",
       "updated_by": "Admin"
     },
     {
       "tabla_nombre": "despachantes",
-      "dvv": "943cbd9a2634b92e9f2b4dc24f08411f0aae17042e675a94ddb904df7b365be6",
-      "cantidad_registros": 4,
+      "dvv": "887c3c362de9b8a5cdaf423c54077405167b7cf82649579ce5600815c2badd7b",
+      "cantidad_registros": 2,
       "snapshot_control": [
-        {
-          "pk": "e1111111-1111-1111-1111-111111111111",
-          "dvh": "5253e690b370b8d73f1ceaea6926828fe5ee2c0012f0807a361cdcb0e759c7d5",
-          "campos": {
-            "nombre": "Bonelli & Asociados Despachantes DGA",
-            "imagen_url": "https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=600&q=80",
-            "whatsapp": "+5491143218800",
-            "email": "despachos@importaplus.com.ar",
-            "orden": "1",
-            "activo": "true"
-          }
-        },
         {
           "pk": "e2222222-2222-2222-2222-222222222222",
           "dvh": "9d707fd99fda58e2825038466e195cfb35db83b25b71b7b22a8c6092435c08d5",
@@ -406,21 +308,9 @@
             "orden": "3",
             "activo": "true"
           }
-        },
-        {
-          "pk": "e4444444-4444-4444-4444-444444444444",
-          "dvh": "dc74f2298eaaaddd13a2191ab6880c2a5adf34ee3e2e70b27e88a3743d755df2",
-          "campos": {
-            "nombre": "Andes & Pacífico Despachantes Matriculados",
-            "imagen_url": "https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=600&q=80",
-            "whatsapp": "+5492614205544",
-            "email": "cuyo@importaplus.com.ar",
-            "orden": "4",
-            "activo": "true"
-          }
         }
       ],
-      "updated_at": "2026-11-27T21:40:18.1876058+00:00",
+      "updated_at": "2026-11-27T22:10:18.6439743+00:00",
       "updated_by": "Admin"
     },
     {
@@ -484,7 +374,7 @@
           }
         }
       ],
-      "updated_at": "2026-11-27T21:40:18.1876058+00:00",
+      "updated_at": "2026-11-27T22:10:18.6439743+00:00",
       "updated_by": "Admin"
     },
     {
@@ -583,7 +473,7 @@
           }
         }
       ],
-      "updated_at": "2026-11-27T21:40:18.1876058+00:00",
+      "updated_at": "2026-11-27T22:10:18.6439743+00:00",
       "updated_by": "Admin"
     },
     {
@@ -642,7 +532,7 @@
           }
         }
       ],
-      "updated_at": "2026-11-27T21:40:18.1876058+00:00",
+      "updated_at": "2026-11-27T22:10:18.6439743+00:00",
       "updated_by": "Admin"
     }
   ]

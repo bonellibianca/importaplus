@@ -75,7 +75,36 @@ public sealed class AdminGestorBLL
             return (false, "Debe ingresar usuario y contraseña.", null);
 
         string cleanUser = username.Trim();
-        var db = await Dal.ObtenerBaseDatosActualAsync(Roles);
+
+        // Si no hay clave secreta local, intentar autenticación y lectura directa por RPC en Supabase usando la Publishable Key integrada
+        BaseDatosCompletaBE? dbDesdeRpc = null;
+        if (!Dal.Config.EstaConfiguradoEnNube)
+        {
+            var rpcAuth = await Dal.IntentarAutenticarYObtenerEstadoRpcAsync(cleanUser, passwordPlano, Roles);
+            if (rpcAuth.RpcDisponible)
+            {
+                if (rpcAuth.Status == "NOT_FOUND")
+                    return (false, "Usuario no existe.", null);
+                if (rpcAuth.Status == "INACTIVE")
+                    return (false, "La cuenta se encuentra inactiva. Contacte al Administrador.", null);
+                if (rpcAuth.Status == "LOCKED")
+                    return (false, "Cuenta bloqueada por intentos fallidos. Contacte al Administrador en Gestión de Usuarios para desbloquearla.", null);
+                if (rpcAuth.Status == "BAD_PASSWORD")
+                {
+                    _intentosFallidosPorUsuario.TryGetValue(cleanUser, out int prevRpc);
+                    int actRpc = prevRpc + 1;
+                    _intentosFallidosPorUsuario[cleanUser] = actRpc;
+                    int restRpc = Math.Max(0, MaxIntentosPorUsuario - actRpc);
+                    return (false, $"Contraseña inválida. Intentos: {actRpc}/{MaxIntentosPorUsuario}. Intentos restantes: {restRpc}.", null);
+                }
+                if (rpcAuth.Status == "OK" && rpcAuth.Datos != null)
+                {
+                    dbDesdeRpc = rpcAuth.Datos;
+                }
+            }
+        }
+
+        var db = dbDesdeRpc ?? await Dal.ObtenerBaseDatosActualAsync(Roles);
         var admin = db.AdminUsuarios.FirstOrDefault(u =>
             string.Equals(u.Username.Trim(), cleanUser, StringComparison.OrdinalIgnoreCase));
 
@@ -118,6 +147,7 @@ public sealed class AdminGestorBLL
         }
 
         _intentosFallidosPorUsuario.Remove(cleanUser);
+        Dal.EstablecerSesionAutenticadaRpc(admin.Username, passwordPlano);
 
         var resultadoDV = SeguridadYDigitoVerificadorBLL.VerificarBaseCompleta(db);
         admin.UltimoAcceso = DateTimeOffset.UtcNow;
@@ -126,6 +156,7 @@ public sealed class AdminGestorBLL
         if (resultadoDV.SaltoDetectado && !EsAdministradorActual())
         {
             AdminActual = null;
+            Dal.EstablecerSesionAutenticadaRpc(string.Empty, string.Empty);
             return (false, "¡ALERTA CRÍTICA! Se ha detectado una alteración externa en la base de datos. Solo un Administrador puede iniciar sesión para restaurar la integridad.", null);
         }
 
@@ -316,6 +347,10 @@ public sealed class AdminGestorBLL
 
         SeguridadYDigitoVerificadorBLL.RecalcularTodoEnMemoria(db, AdminActual?.Username ?? "Admin");
         var res = await Dal.GuardarBaseDatosCompletaAsync(db, rolesBll: Roles);
+        if (res.Ok && AdminActual != null && u.Id == AdminActual.Id)
+        {
+            Dal.EstablecerSesionAutenticadaRpc(u.Username, nuevaPassword);
+        }
         return (res.Ok, $"La contraseña del usuario '{u.Username}' fue actualizada exitosamente. {res.Detalle}");
     }
 
@@ -352,6 +387,10 @@ public sealed class AdminGestorBLL
 
         SeguridadYDigitoVerificadorBLL.RecalcularTodoEnMemoria(db, admin.Username);
         var guardado = await Dal.GuardarBaseDatosCompletaAsync(db, rolesBll: Roles);
+        if (guardado.Ok)
+        {
+            Dal.EstablecerSesionAutenticadaRpc(admin.Username, nuevaPassword);
+        }
         return (guardado.Ok, $"Contraseña actualizada exitosamente. {guardado.Detalle}");
     }
 

@@ -8,9 +8,10 @@ public sealed class SupabaseConfigBE
 {
     public const string DefaultProjectUrl = "https://exqyupuliqxsxejgouho.supabase.co";
     public const string DefaultPublishableKey = "sb_publishable_HPs_CdVHnpT1PqyRUwfz9Q_g5rBulj_";
+    public const string DefaultServiceRoleKey = ""; // Opcional: se usa conexión RPC directa con Publishable Key + sesión autenticada
 
     public string SupabaseUrl { get; set; } = DefaultProjectUrl;
-    public string ServiceRoleKey { get; set; } = string.Empty;
+    public string ServiceRoleKey { get; set; } = DefaultServiceRoleKey;
     public string AnonKey { get; set; } = DefaultPublishableKey;
     public string WebWorkspacePath { get; set; } = string.Empty;
 

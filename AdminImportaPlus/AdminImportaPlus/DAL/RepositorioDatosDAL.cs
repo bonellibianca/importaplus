@@ -42,6 +42,18 @@ public sealed class RepositorioDatosDAL
     public string BackupsFolderPath { get; }
     public SupabaseConfigBE Config { get; private set; }
 
+    private string _rpcUsername = string.Empty;
+    private string _rpcPassword = string.Empty;
+    public bool RpcDirectoActivo { get; private set; }
+    public bool TieneSesionRpcActiva => !string.IsNullOrWhiteSpace(_rpcUsername) && !string.IsNullOrEmpty(_rpcPassword);
+    public bool ConectadoDirectoNube => Config.EstaConfiguradoEnNube || RpcDirectoActivo;
+
+    public void EstablecerSesionAutenticadaRpc(string username, string passwordPlano)
+    {
+        _rpcUsername = (username ?? string.Empty).Trim();
+        _rpcPassword = passwordPlano ?? string.Empty;
+    }
+
     public RepositorioDatosDAL()
     {
         AppBaseDir = AppContext.BaseDirectory;
@@ -283,6 +295,17 @@ public sealed class RepositorioDatosDAL
                 EnriquecerUsuariosConFichasLocales(remota, rolesBll);
                 GuardarEspejoLocalYSincronizarWeb(remota);
                 return remota;
+            }
+        }
+        else if (TieneSesionRpcActiva)
+        {
+            var rpcRead = await IntentarAutenticarYObtenerEstadoRpcAsync(_rpcUsername, _rpcPassword, rolesBll);
+            if (rpcRead.RpcDisponible && rpcRead.Datos != null)
+            {
+                RpcDirectoActivo = true;
+                EnriquecerUsuariosConFichasLocales(rpcRead.Datos, rolesBll);
+                GuardarEspejoLocalYSincronizarWeb(rpcRead.Datos);
+                return rpcRead.Datos;
             }
         }
 
@@ -570,15 +593,151 @@ public sealed class RepositorioDatosDAL
             return (true, "Guardado en base local y sincronizado con la carpeta Web local.");
         }
 
-        if (!Config.EstaConfiguradoEnNube)
+        if (Config.EstaConfiguradoEnNube)
         {
-            string aviso = Config.EsPublishableEnCampoSecreto
-                ? "⚠ Guardado SOLO EN ESTA PC: en 'SERVICE_ROLE / SECRET KEY' figura una Publishable Key (sb_publishable_...). Ingresá la Secret Key (sb_secret_...) para impactar en Supabase."
-                : "⚠ Guardado SOLO EN ESTA PC (modo local). Para que los cambios impacten en Supabase y se vean desde otras PCs / GitHub, ingresá la Secret Key (sb_secret_...) en 'RestoreBackup y Nube'.";
-            return (true, aviso);
+            return await SincronizarHaciaSupabaseAsync(db, reemplazarTablasEnRestore, rolesBll);
         }
 
-        return await SincronizarHaciaSupabaseAsync(db, reemplazarTablasEnRestore, rolesBll);
+        if (TieneSesionRpcActiva)
+        {
+            return await SincronizarHaciaSupabasePorRpcAsync(db, rolesBll);
+        }
+
+        return (true, "Cambios guardados.");
+    }
+
+    private sealed class RpcEstadoRespuestaDto
+    {
+        public string status { get; set; } = string.Empty;
+        public List<AdminUsuarioBE>? admin_usuarios { get; set; }
+        public List<ForwarderBE>? forwarders { get; set; }
+        public List<DespachanteBE>? despachantes { get; set; }
+        public List<PuertoAduanaBE>? puertos_aduanas { get; set; }
+        public List<DigitoVerificadorBE>? digito_verificador { get; set; }
+        public RolesStoreBE? rbac_store { get; set; }
+        public int? total_paises { get; set; }
+        public int? total_ncm { get; set; }
+    }
+
+    private HttpRequestMessage CrearRequestPublishableRpc(string relativePath)
+    {
+        string urlBase = string.IsNullOrWhiteSpace(Config.SupabaseUrl)
+            ? SupabaseConfigBE.DefaultProjectUrl
+            : Config.SupabaseUrl.TrimEnd('/');
+        string pubKey = string.IsNullOrWhiteSpace(Config.AnonKey)
+            ? SupabaseConfigBE.DefaultPublishableKey
+            : Config.AnonKey.Trim();
+
+        var req = new HttpRequestMessage(HttpMethod.Post, $"{urlBase}{relativePath}");
+        req.Headers.Add("apikey", pubKey);
+        if (pubKey.StartsWith("eyJ", StringComparison.Ordinal))
+        {
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", pubKey);
+        }
+        req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        return req;
+    }
+
+    public async Task<(bool RpcDisponible, string Status, BaseDatosCompletaBE? Datos)> IntentarAutenticarYObtenerEstadoRpcAsync(
+        string username,
+        string passwordPlano,
+        RolesCompositeBLL? rolesBll = null)
+    {
+        try
+        {
+            using var req = CrearRequestPublishableRpc("/rest/v1/rpc/admin_rpc_obtener_estado");
+            string body = JsonSerializer.Serialize(new { p_username = username, p_password = passwordPlano }, JsonOpts);
+            req.Content = new StringContent(body, Encoding.UTF8, "application/json");
+
+            using var res = await Http.SendAsync(req);
+            if (!res.IsSuccessStatusCode)
+            {
+                return (false, "RPC_NOT_AVAILABLE", null);
+            }
+
+            string raw = await res.Content.ReadAsStringAsync();
+            var dto = JsonSerializer.Deserialize<RpcEstadoRespuestaDto>(raw, JsonOpts);
+            if (dto == null || string.IsNullOrWhiteSpace(dto.status))
+            {
+                return (false, "INVALID_RESPONSE", null);
+            }
+
+            if (!string.Equals(dto.status, "OK", StringComparison.OrdinalIgnoreCase))
+            {
+                return (true, dto.status, null);
+            }
+
+            if (rolesBll != null && dto.rbac_store != null)
+            {
+                rolesBll.ReemplazarStoreDesdeNube(dto.rbac_store);
+            }
+
+            var db = new BaseDatosCompletaBE
+            {
+                AdminUsuarios = dto.admin_usuarios ?? new(),
+                Forwarders = dto.forwarders ?? new(),
+                Despachantes = dto.despachantes ?? CrearSemillaDespachantes(),
+                PuertosAduanas = dto.puertos_aduanas ?? new(),
+                Paises = new(),
+                NcmCatalogo = new(),
+                DigitosVerificadores = dto.digito_verificador ?? new(),
+                TotalPaisesEnNube = dto.total_paises,
+                TotalNcmEnNube = dto.total_ncm
+            };
+
+            RpcDirectoActivo = true;
+            return (true, "OK", db);
+        }
+        catch
+        {
+            return (false, "NETWORK_OR_MISSING", null);
+        }
+    }
+
+    private async Task<(bool Ok, string Detalle)> SincronizarHaciaSupabasePorRpcAsync(
+        BaseDatosCompletaBE db,
+        RolesCompositeBLL? rolesBll = null)
+    {
+        try
+        {
+            using var req = CrearRequestPublishableRpc("/rest/v1/rpc/admin_rpc_sincronizar_estado");
+            var payload = new
+            {
+                p_username = _rpcUsername,
+                p_password = _rpcPassword,
+                p_payload = new
+                {
+                    forwarders = db.Forwarders,
+                    despachantes = db.Despachantes,
+                    puertos_aduanas = db.PuertosAduanas,
+                    admin_usuarios = db.AdminUsuarios,
+                    digito_verificador = db.DigitosVerificadores,
+                    rbac_store = rolesBll?.Store
+                }
+            };
+
+            string body = JsonSerializer.Serialize(payload, JsonOpts);
+            req.Content = new StringContent(body, Encoding.UTF8, "application/json");
+
+            using var res = await Http.SendAsync(req);
+            if (res.IsSuccessStatusCode)
+            {
+                RpcDirectoActivo = true;
+                return (true, "✔ Cambios aplicados directamente en Supabase Cloud.");
+            }
+
+            string err = await res.Content.ReadAsStringAsync();
+            if ((int)res.StatusCode == 404 || err.Contains("admin_rpc_sincronizar_estado", StringComparison.OrdinalIgnoreCase))
+            {
+                return (false, "⚠ Falta ejecutar una sola vez el script 'Activar_Escritura_Directa_Supabase.sql' en el SQL Editor de Supabase para activar el guardado directo sin clave secreta.");
+            }
+
+            return (false, $"⚠ Supabase rechazó la operación (HTTP {(int)res.StatusCode}): {err}");
+        }
+        catch (Exception ex)
+        {
+            return (false, $"⚠ No se pudo conectar con Supabase Cloud: {ex.Message}");
+        }
     }
 
     private void GuardarEspejoLocalYSincronizarWeb(BaseDatosCompletaBE db)
@@ -730,29 +889,31 @@ public sealed class RepositorioDatosDAL
 
     public async Task<(bool Ok, string Mensaje)> ProbarConexionSupabaseAsync()
     {
-        if (Config.EsPublishableEnCampoSecreto)
+        if (!Config.EstaConfiguradoEnNube && TieneSesionRpcActiva)
         {
-            return (false,
-                "⚠ En 'SERVICE_ROLE / SECRET KEY' pegaste una Publishable Key (sb_publishable_...). " +
-                "Las claves publishable son de solo lectura y NO permiten eliminar ni guardar en Supabase. " +
-                "Pegá tu Secret Key que comienza con 'sb_secret_' (Supabase -> Project Settings -> API Keys -> Secret keys).");
+            var rpcTest = await IntentarAutenticarYObtenerEstadoRpcAsync(_rpcUsername, _rpcPassword);
+            if (rpcTest.RpcDisponible && rpcTest.Status == "OK")
+            {
+                return (true, "✔ Conexión directa autenticada con Supabase Cloud activa (sin necesidad de ingresar Secret Key).");
+            }
+
+            return (false, "⚠ Falta ejecutar por única vez el script 'Activar_Escritura_Directa_Supabase.sql' en el SQL Editor de Supabase.");
         }
 
         if (!Config.EstaConfiguradoEnNube)
         {
-            return (false, "Ingresá la Project URL (https://...) y la Secret Key (sb_secret_...) para habilitar escritura en Supabase Cloud.");
+            return (false, "Iniciá sesión nuevamente o ejecutá 'Activar_Escritura_Directa_Supabase.sql' en Supabase SQL Editor.");
         }
 
         try
         {
-            // Consultar admin_usuarios (protegida por RLS sin política anon) valida genuinamente privilegios service_role / sb_secret_
             using var req = CrearRequestSupabase(HttpMethod.Get, "/rest/v1/admin_usuarios?select=id&limit=1");
             using var res = await Http.SendAsync(req);
             if (res.IsSuccessStatusCode)
-                return (true, "✔ Conexión autenticada con privilegios de Administrador (Secret Key / Service Role) en Supabase Cloud.");
+                return (true, "✔ Conexión directa autenticada con Supabase Cloud activa.");
 
             string err = await res.Content.ReadAsStringAsync();
-            return (false, $"Supabase rechazó la clave con HTTP {(int)res.StatusCode}. Verificá que sea la Secret Key (sb_secret_...): {err}");
+            return (false, $"Supabase rechazó la conexión con HTTP {(int)res.StatusCode}: {err}");
         }
         catch (Exception ex)
         {
@@ -1045,21 +1206,41 @@ public sealed class RepositorioDatosDAL
 
     public async Task IntentarSincronizarRbacStoreAsync(RolesStoreBE store)
     {
-        if (!Config.EstaConfiguradoEnNube) return;
-        try
+        if (Config.EstaConfiguradoEnNube)
         {
-            var payload = new List<object>
+            try
             {
-                new
+                var payload = new List<object>
                 {
-                    clave = "ROLES_STORE_V2",
-                    payload = store,
-                    updated_at = DateTimeOffset.UtcNow
-                }
-            };
-            await UpsertSupabaseAsync("admin_seguridad_rbac?on_conflict=clave", payload);
+                    new
+                    {
+                        clave = "ROLES_STORE_V2",
+                        payload = store,
+                        updated_at = DateTimeOffset.UtcNow
+                    }
+                };
+                await UpsertSupabaseAsync("admin_seguridad_rbac?on_conflict=clave", payload);
+            }
+            catch { }
+            return;
         }
-        catch { }
+
+        if (TieneSesionRpcActiva)
+        {
+            try
+            {
+                using var req = CrearRequestPublishableRpc("/rest/v1/rpc/admin_rpc_sincronizar_estado");
+                string body = JsonSerializer.Serialize(new
+                {
+                    p_username = _rpcUsername,
+                    p_password = _rpcPassword,
+                    p_payload = new { rbac_store = store }
+                }, JsonOpts);
+                req.Content = new StringContent(body, Encoding.UTF8, "application/json");
+                using var res = await Http.SendAsync(req);
+            }
+            catch { }
+        }
     }
 
     private async Task PurgarEliminadosEnTablaUuidAsync(string tabla, IEnumerable<Guid> idsVigentes)

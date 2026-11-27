@@ -850,4 +850,98 @@ GRANT EXECUTE ON FUNCTION public.recalcular_digitos_verificadores(VARCHAR) TO se
 
 SELECT public.recalcular_digitos_verificadores('INITIAL_SETUP');
 
+-- RPCs SEGURAS PARA LECTURA Y ESCRITURA DIRECTA DESDE AdminImportaPlus.exe SIN NECESIDAD DE SECRET KEY
+CREATE OR REPLACE FUNCTION public.admin_rpc_obtener_estado(p_username TEXT, p_password TEXT)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions, pg_temp AS $$
+DECLARE
+    v_user public.admin_usuarios%ROWTYPE;
+    v_rbac JSONB;
+BEGIN
+    SELECT * INTO v_user FROM public.admin_usuarios WHERE lower(trim(username)) = lower(trim(coalesce(p_username, ''))) LIMIT 1;
+    IF NOT FOUND THEN RETURN jsonb_build_object('status', 'NOT_FOUND'); END IF;
+    IF NOT v_user.activo THEN RETURN jsonb_build_object('status', 'INACTIVE'); END IF;
+    IF coalesce(v_user.bloqueado, FALSE) THEN RETURN jsonb_build_object('status', 'LOCKED'); END IF;
+    IF extensions.crypt(coalesce(p_password, ''), v_user.password_hash) <> v_user.password_hash THEN
+        RETURN jsonb_build_object('status', 'BAD_PASSWORD');
+    END IF;
+    UPDATE public.admin_usuarios SET ultimo_acceso = NOW() WHERE id = v_user.id;
+    SELECT payload INTO v_rbac FROM public.admin_seguridad_rbac WHERE clave = 'ROLES_STORE_V2' LIMIT 1;
+    RETURN jsonb_build_object(
+        'status', 'OK',
+        'admin_usuarios', coalesce((SELECT jsonb_agg(to_jsonb(u) ORDER BY u.username) FROM public.admin_usuarios u), '[]'::jsonb),
+        'forwarders', coalesce((SELECT jsonb_agg(to_jsonb(f) ORDER BY f.orden) FROM public.forwarders f), '[]'::jsonb),
+        'despachantes', coalesce((SELECT jsonb_agg(to_jsonb(d) ORDER BY d.orden) FROM public.despachantes d), '[]'::jsonb),
+        'puertos_aduanas', coalesce((SELECT jsonb_agg(to_jsonb(p) ORDER BY p.nombre) FROM public.puertos_aduanas p), '[]'::jsonb),
+        'digito_verificador', coalesce((SELECT jsonb_agg(CASE WHEN dv.tabla_nombre IN ('paises', 'ncm_catalogo') THEN jsonb_build_object('tabla_nombre', dv.tabla_nombre, 'dvv', dv.dvv, 'cantidad_registros', dv.cantidad_registros, 'snapshot_control', '[]'::jsonb, 'updated_at', dv.updated_at, 'updated_by', dv.updated_by) ELSE to_jsonb(dv) END) FROM public.digito_verificador dv), '[]'::jsonb),
+        'rbac_store', v_rbac,
+        'total_paises', (SELECT count(*)::INT FROM public.paises),
+        'total_ncm', (SELECT count(*)::INT FROM public.ncm_catalogo)
+    );
+END;
+$$;
+REVOKE ALL ON FUNCTION public.admin_rpc_obtener_estado(TEXT, TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.admin_rpc_obtener_estado(TEXT, TEXT) TO anon, authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.admin_rpc_sincronizar_estado(p_username TEXT, p_password TEXT, p_payload JSONB)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions, pg_temp AS $$
+DECLARE
+    v_user public.admin_usuarios%ROWTYPE;
+BEGIN
+    SELECT * INTO v_user FROM public.admin_usuarios WHERE lower(trim(username)) = lower(trim(coalesce(p_username, ''))) LIMIT 1;
+    IF NOT FOUND OR NOT v_user.activo OR coalesce(v_user.bloqueado, FALSE) THEN RAISE EXCEPTION 'Sesión administrativa inválida.'; END IF;
+    IF extensions.crypt(coalesce(p_password, ''), v_user.password_hash) <> v_user.password_hash THEN RAISE EXCEPTION 'Credenciales inválidas.'; END IF;
+
+    IF p_payload ? 'forwarders' THEN
+        DELETE FROM public.forwarders WHERE id NOT IN (SELECT (elem->>'id')::UUID FROM jsonb_array_elements(p_payload->'forwarders') AS elem WHERE elem ? 'id');
+        INSERT INTO public.forwarders (id, nombre, imagen_url, whatsapp, email, orden, activo, dvh, updated_at)
+        SELECT (elem->>'id')::UUID, elem->>'nombre', elem->>'imagen_url', elem->>'whatsapp', elem->>'email', coalesce((elem->>'orden')::INT, 1), coalesce((elem->>'activo')::BOOLEAN, TRUE), coalesce(elem->>'dvh', ''), NOW()
+        FROM jsonb_array_elements(p_payload->'forwarders') AS elem
+        ON CONFLICT (id) DO UPDATE SET nombre = EXCLUDED.nombre, imagen_url = EXCLUDED.imagen_url, whatsapp = EXCLUDED.whatsapp, email = EXCLUDED.email, orden = EXCLUDED.orden, activo = EXCLUDED.activo, dvh = EXCLUDED.dvh, updated_at = NOW();
+    END IF;
+
+    IF p_payload ? 'despachantes' THEN
+        DELETE FROM public.despachantes WHERE id NOT IN (SELECT (elem->>'id')::UUID FROM jsonb_array_elements(p_payload->'despachantes') AS elem WHERE elem ? 'id');
+        INSERT INTO public.despachantes (id, nombre, imagen_url, whatsapp, email, orden, activo, dvh, updated_at)
+        SELECT (elem->>'id')::UUID, elem->>'nombre', elem->>'imagen_url', elem->>'whatsapp', elem->>'email', coalesce((elem->>'orden')::INT, 1), coalesce((elem->>'activo')::BOOLEAN, TRUE), coalesce(elem->>'dvh', ''), NOW()
+        FROM jsonb_array_elements(p_payload->'despachantes') AS elem
+        ON CONFLICT (id) DO UPDATE SET nombre = EXCLUDED.nombre, imagen_url = EXCLUDED.imagen_url, whatsapp = EXCLUDED.whatsapp, email = EXCLUDED.email, orden = EXCLUDED.orden, activo = EXCLUDED.activo, dvh = EXCLUDED.dvh, updated_at = NOW();
+        INSERT INTO public.parametros_sistema (clave, valor, descripcion, updated_at) VALUES ('CATALOGO_DESPACHANTES_JSON', 'SYNC_RPC', (p_payload->'despachantes')::TEXT, NOW())
+        ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor, descripcion = EXCLUDED.descripcion, updated_at = NOW();
+    END IF;
+
+    IF p_payload ? 'puertos_aduanas' THEN
+        DELETE FROM public.puertos_aduanas WHERE id NOT IN (SELECT (elem->>'id')::UUID FROM jsonb_array_elements(p_payload->'puertos_aduanas') AS elem WHERE elem ? 'id');
+        INSERT INTO public.puertos_aduanas (id, nombre, via_ingreso, provincia, codigo_sim, operador, infraestructura, latitud, longitud, dvh)
+        SELECT (elem->>'id')::UUID, elem->>'nombre', elem->>'via_ingreso', elem->>'provincia', elem->>'codigo_sim', elem->>'operador', elem->>'infraestructura', NULLIF(elem->>'latitud', '')::NUMERIC, NULLIF(elem->>'longitud', '')::NUMERIC, coalesce(elem->>'dvh', '')
+        FROM jsonb_array_elements(p_payload->'puertos_aduanas') AS elem
+        ON CONFLICT (id) DO UPDATE SET nombre = EXCLUDED.nombre, via_ingreso = EXCLUDED.via_ingreso, provincia = EXCLUDED.provincia, codigo_sim = EXCLUDED.codigo_sim, operador = EXCLUDED.operador, infraestructura = EXCLUDED.infraestructura, latitud = EXCLUDED.latitud, longitud = EXCLUDED.longitud, dvh = EXCLUDED.dvh;
+    END IF;
+
+    IF p_payload ? 'admin_usuarios' AND jsonb_array_length(p_payload->'admin_usuarios') > 0 THEN
+        DELETE FROM public.admin_usuarios WHERE id NOT IN (SELECT (elem->>'id')::UUID FROM jsonb_array_elements(p_payload->'admin_usuarios') AS elem WHERE elem ? 'id');
+        INSERT INTO public.admin_usuarios (id, dni, nombre, apellido, username, password_hash, bloqueado, activo, perfil_id, password_updated_at, dvh)
+        SELECT (elem->>'id')::UUID, coalesce((elem->>'dni')::INT, 11111111), coalesce(elem->>'nombre', 'Usuario'), coalesce(elem->>'apellido', 'Sistema'), elem->>'username', elem->>'password_hash', coalesce((elem->>'bloqueado')::BOOLEAN, FALSE), coalesce((elem->>'activo')::BOOLEAN, TRUE), NULLIF(elem->>'perfil_id', '')::UUID, coalesce((elem->>'password_updated_at')::TIMESTAMPTZ, NOW()), coalesce(elem->>'dvh', '')
+        FROM jsonb_array_elements(p_payload->'admin_usuarios') AS elem
+        ON CONFLICT (username) DO UPDATE SET dni = EXCLUDED.dni, nombre = EXCLUDED.nombre, apellido = EXCLUDED.apellido, password_hash = EXCLUDED.password_hash, bloqueado = EXCLUDED.bloqueado, activo = EXCLUDED.activo, perfil_id = EXCLUDED.perfil_id, password_updated_at = EXCLUDED.password_updated_at, dvh = EXCLUDED.dvh;
+    END IF;
+
+    IF p_payload ? 'rbac_store' AND p_payload->'rbac_store' IS NOT NULL AND jsonb_typeof(p_payload->'rbac_store') = 'object' THEN
+        INSERT INTO public.admin_seguridad_rbac (clave, payload, updated_at) VALUES ('ROLES_STORE_V2', p_payload->'rbac_store', NOW())
+        ON CONFLICT (clave) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW();
+    END IF;
+
+    IF p_payload ? 'digito_verificador' THEN
+        INSERT INTO public.digito_verificador (tabla_nombre, dvv, cantidad_registros, snapshot_control, updated_at, updated_by)
+        SELECT elem->>'tabla_nombre', elem->>'dvv', coalesce((elem->>'cantidad_registros')::INT, 0), coalesce(elem->'snapshot_control', '[]'::jsonb), NOW(), p_username
+        FROM jsonb_array_elements(p_payload->'digito_verificador') AS elem
+        WHERE (elem->>'tabla_nombre') NOT IN ('paises', 'ncm_catalogo')
+        ON CONFLICT (tabla_nombre) DO UPDATE SET dvv = EXCLUDED.dvv, cantidad_registros = EXCLUDED.cantidad_registros, snapshot_control = EXCLUDED.snapshot_control, updated_at = NOW(), updated_by = EXCLUDED.updated_by;
+    END IF;
+
+    RETURN jsonb_build_object('ok', TRUE, 'updated_by', p_username, 'ts', NOW());
+END;
+$$;
+REVOKE ALL ON FUNCTION public.admin_rpc_sincronizar_estado(TEXT, TEXT, JSONB) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.admin_rpc_sincronizar_estado(TEXT, TEXT, JSONB) TO anon, authenticated, service_role;
+
 COMMIT;
