@@ -18,6 +18,7 @@ class SimuladorController {
       breakdown: new window.DesgloseState(),
       ports: new window.PuertosState(),
       contact: new window.ContactoState(),
+      despachantes: new window.DespachantesState(),
       planes: new window.PlanesState()
     };
     this.currentState = this.states['hero'];
@@ -46,6 +47,7 @@ class SimuladorController {
       paisesCatalogo: [],
       puertosCatalogo: [],
       forwardersCatalogo: [],
+      despachantesCatalogo: [],
       mailCopiadoId: null,
       calculadoraBE: null,
       selectedPlan: null,
@@ -99,7 +101,12 @@ class SimuladorController {
       this.state.paisesCatalogo = await this.paisBLL.obtenerPaises();
       this.state.puertosCatalogo = await this.puertoBLL.obtenerPuertos();
       if (window.SupabaseClientDAL) {
-        this.state.forwardersCatalogo = await window.SupabaseClientDAL.obtenerForwardersGrilla();
+        const [fwds, desps] = await Promise.all([
+          window.SupabaseClientDAL.obtenerForwardersGrilla(),
+          window.SupabaseClientDAL.obtenerDespachantesGrilla()
+        ]);
+        this.state.forwardersCatalogo = fwds;
+        this.state.despachantesCatalogo = desps;
       }
       await this.posicionBLL.obtenerTodas();
       if (this.calculadoraBLL && this.calculadoraBLL.calculadoraDAL) {
@@ -162,6 +169,38 @@ class SimuladorController {
     this.render();
     setTimeout(() => {
       if (this.state.mailCopiadoId === fwd.id) {
+        this.state.mailCopiadoId = null;
+        this.render();
+      }
+    }, 2200);
+  }
+
+  redirigirWhatsappDespachante(idx) {
+    const desp = (this.state.despachantesCatalogo || [])[idx];
+    if (!desp || !desp.whatsapp) return;
+    const digits = String(desp.whatsapp).replace(/[^0-9]/g, '');
+    if (!digits) return;
+    const msg = encodeURIComponent(this.t('waMensajeDespachante'));
+    window.open(`https://wa.me/${digits}?text=${msg}`, '_blank', 'noopener,noreferrer');
+  }
+
+  async copiarMailDespachante(idx) {
+    const desp = (this.state.despachantesCatalogo || [])[idx];
+    if (!desp || !desp.email) return;
+    try {
+      await navigator.clipboard.writeText(desp.email);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = desp.email;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    this.state.mailCopiadoId = desp.id;
+    this.render();
+    setTimeout(() => {
+      if (this.state.mailCopiadoId === desp.id) {
         this.state.mailCopiadoId = null;
         this.render();
       }

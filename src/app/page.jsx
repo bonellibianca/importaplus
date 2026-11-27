@@ -109,11 +109,13 @@ export default function ImportaPlusApp() {
   const [usaExcepcion, setUsaExcepcion] = useState(true);
   const [mensajeError, setMensajeError] = useState("");
 
-  // Resultados, Puertos y Grilla de Forwarders
+  // Resultados, Puertos y Directorios (Forwarders / Despachantes de Aduana)
   const [resultado, setResultado] = useState(null);
   const [mostrarDescResultado, setMostrarDescResultado] = useState(false);
   const [puertosSugeridos, setPuertosSugeridos] = useState([]);
   const [forwarders, setForwarders] = useState([]);
+  const [despachantes, setDespachantes] = useState([]);
+  const [tipoDirectorio, setTipoDirectorio] = useState("forwarders");
   const [calculando, setCalculando] = useState(false);
   const [mostrarPuertosYForwarders, setMostrarPuertosYForwarders] = useState(false);
   const [mailCopiadoId, setMailCopiadoId] = useState(null);
@@ -177,9 +179,10 @@ export default function ImportaPlusApp() {
   useEffect(() => {
     async function cargarDirectorio() {
       try {
-        const res = await fetch("/api/v1/puertos");
+        const res = await fetch("/api/v1/puertos", { cache: "no-store" });
         const data = await res.json();
         if (Array.isArray(data.forwarders)) setForwarders(data.forwarders);
+        if (Array.isArray(data.despachantes)) setDespachantes(data.despachantes);
         if (Array.isArray(data.puertos)) setPuertosSugeridos(data.puertos);
         if (Array.isArray(data.paises)) setPaisesCatalogo(data.paises);
       } catch (err) {
@@ -220,6 +223,7 @@ export default function ImportaPlusApp() {
   };
 
   const abrirForwarders = () => {
+    setTipoDirectorio("forwarders");
     setTimeout(() => {
       if (forwardersRef.current) {
         forwardersRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -227,10 +231,19 @@ export default function ImportaPlusApp() {
     }, 60);
   };
 
-  const redirigirWhatsapp = (fwd) => {
-    const digits = limpiarNumeroWhatsapp(fwd.whatsapp);
+  const abrirDespachantes = () => {
+    setTipoDirectorio("despachantes");
+    setTimeout(() => {
+      if (forwardersRef.current) {
+        forwardersRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 60);
+  };
+
+  const redirigirWhatsapp = (operador, esDespachante = false) => {
+    const digits = limpiarNumeroWhatsapp(operador.whatsapp);
     if (!digits) return;
-    const msg = encodeURIComponent(dicc.waMensajeDefault);
+    const msg = encodeURIComponent(esDespachante ? dicc.waMensajeDespachante : dicc.waMensajeDefault);
     window.open(`https://wa.me/${digits}?text=${msg}`, "_blank", "noopener,noreferrer");
   };
 
@@ -619,18 +632,27 @@ export default function ImportaPlusApp() {
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
+                <div className="flex items-center gap-2 pt-1">
                   <span className="text-xs font-bold uppercase tracking-widest text-[#530618]">{dicc.costosAdicionales}</span>
                   <span className="text-[10px] font-semibold border border-slate-300 text-slate-500 px-1.5 py-0.5 rounded uppercase">{dicc.opcional}</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={abrirForwarders}
-                  className="bg-[#530618] hover:bg-[#3D0411] text-white text-xs font-semibold px-3 py-1.5 rounded transition-colors shadow-sm"
-                >
-                  {dicc.btnContactarForwarder}
-                </button>
+                <div className="flex flex-col items-stretch sm:items-end gap-1.5">
+                  <button
+                    type="button"
+                    onClick={abrirForwarders}
+                    className="bg-[#530618] hover:bg-[#3D0411] text-white text-xs font-semibold px-3 py-1.5 rounded transition-colors shadow-sm"
+                  >
+                    {dicc.btnContactarForwarder}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={abrirDespachantes}
+                    className="bg-[#530618] hover:bg-[#3D0411] text-white text-xs font-semibold px-3 py-1.5 rounded transition-colors shadow-sm"
+                  >
+                    {dicc.btnContactarDespachante}
+                  </button>
+                </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -878,7 +900,7 @@ export default function ImportaPlusApp() {
           </section>
         )}
 
-        {/* PN3: Módulo de Puertos y Aduanas */}
+        {/* Módulo de Puertos y Aduanas */}
         {mostrarPuertosYForwarders && (
           <section className="space-y-6 pt-2 print:hidden">
             <div className="bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-slate-200 space-y-4">
@@ -924,87 +946,93 @@ export default function ImportaPlusApp() {
           </section>
         )}
 
-        {/* PN4: APARTADO FORWARDERS - GRILLA DE 4 POR FILA */}
-        {forwarders.length > 0 && (
-          <section ref={forwardersRef} className="bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-slate-200 space-y-6 print:hidden">
-            <div className="border-b pb-3">
-              <span className="text-xs font-bold uppercase tracking-widest text-[#530618]">
-                {dicc.fwdTag}
-              </span>
-              <h3 className="text-xl font-bold text-slate-800 mt-0.5">
-                {dicc.fwdTitulo}
-              </h3>
-              <p className="text-xs text-slate-500 mt-1">
-                {dicc.fwdSubtitulo}
-              </p>
-            </div>
+        {/* DIRECTORIO OFICIAL: MUESTRA SOLO FORWARDERS O SOLO DESPACHANTES DE ADUANA SEGÚN EL BOTÓN ELEGIDO */}
+        {(() => {
+          const esDespachantes = tipoDirectorio === "despachantes";
+          const listaActiva = esDespachantes ? despachantes : forwarders;
+          if (!Array.isArray(listaActiva) || listaActiva.length === 0) return null;
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {forwarders.map((fwd) => {
-                const nombreCortado = String(fwd.nombre || "").slice(0, 120);
-                const copiado = mailCopiadoId === fwd.id;
-                const imgSegura = esUrlImagenSeguraCliente(fwd.imagen_url) ? fwd.imagen_url : "/logo-importa.png";
-                return (
-                  <div
-                    key={fwd.id}
-                    className="bg-[#FFF8F8] border border-[#F0D0D4] rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:border-[#530618] transition-all flex flex-col justify-between"
-                  >
-                    <div className="w-full aspect-square bg-slate-200 overflow-hidden relative">
-                      <img
-                        src={imgSegura}
-                        alt={nombreCortado}
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
-                        onError={(e) => {
-                          e.currentTarget.onerror = null;
-                          e.currentTarget.src = "/logo-importa.png";
-                        }}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
+          return (
+            <section ref={forwardersRef} className="bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-slate-200 space-y-6 print:hidden">
+              <div className="border-b pb-3">
+                <span className="text-xs font-bold uppercase tracking-widest text-[#530618]">
+                  {esDespachantes ? dicc.despTag : dicc.fwdTag}
+                </span>
+                <h3 className="text-xl font-bold text-slate-800 mt-0.5">
+                  {esDespachantes ? dicc.despTitulo : dicc.fwdTitulo}
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  {esDespachantes ? dicc.despSubtitulo : dicc.fwdSubtitulo}
+                </p>
+              </div>
 
-                    <div className="p-4 flex flex-col flex-1 justify-between gap-3">
-                      <h4
-                        className="text-sm font-bold text-[#171717] text-center leading-snug break-words"
-                        title={nombreCortado}
-                      >
-                        {nombreCortado}
-                      </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                {listaActiva.map((item) => {
+                  const nombreCortado = String(item.nombre || "").slice(0, 120);
+                  const copiado = mailCopiadoId === item.id;
+                  const imgSegura = esUrlImagenSeguraCliente(item.imagen_url) ? item.imagen_url : "/logo-importa.png";
+                  return (
+                    <div
+                      key={item.id}
+                      className="bg-[#FFF8F8] border border-[#F0D0D4] rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:border-[#530618] transition-all flex flex-col justify-between"
+                    >
+                      <div className="w-full aspect-square bg-slate-200 overflow-hidden relative">
+                        <img
+                          src={imgSegura}
+                          alt={nombreCortado}
+                          loading="lazy"
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = "/logo-importa.png";
+                          }}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
 
-                      <div className="space-y-2">
-                        <button
-                          type="button"
-                          onClick={() => redirigirWhatsapp(fwd)}
-                          className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 px-3 rounded-lg transition-colors shadow-sm cursor-pointer"
+                      <div className="p-4 flex flex-col flex-1 justify-between gap-3">
+                        <h4
+                          className="text-sm font-bold text-[#171717] text-center leading-snug break-words"
+                          title={nombreCortado}
                         >
-                          <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
-                            <path d="M20.52 3.48A11.82 11.82 0 0012.06 0C5.5 0 .16 5.34.16 11.9c0 2.1.55 4.15 1.6 5.95L0 24l6.32-1.66a11.86 11.86 0 005.74 1.46h.01c6.55 0 11.89-5.34 11.89-11.9 0-3.18-1.24-6.17-3.44-8.42zM12.07 21.8h-.01a9.87 9.87 0 01-5.03-1.38l-.36-.21-3.75.98 1-3.65-.24-.38a9.85 9.85 0 01-1.51-5.26c0-5.45 4.44-9.89 9.9-9.89 2.64 0 5.13 1.03 7 2.9a9.83 9.83 0 012.9 7c0 5.45-4.44 9.89-9.9 9.89zm5.43-7.41c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.88 1.22 3.08.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35z" />
-                          </svg>
-                          <span>{dicc.btnWhatsapp}</span>
-                        </button>
+                          {nombreCortado}
+                        </h4>
 
-                        <button
-                          type="button"
-                          onClick={() => copiarEmailForwarder(fwd)}
-                          className={`w-full flex items-center justify-center gap-2 font-bold text-xs py-2.5 px-3 rounded-lg transition-colors shadow-sm cursor-pointer ${
-                            copiado
-                              ? "bg-[#3D0411] text-rose-100 ring-2 ring-[#530618]"
-                              : "bg-[#530618] hover:bg-[#3D0411] text-white"
-                          }`}
-                        >
-                          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                          </svg>
-                          <span>{copiado ? dicc.mailCopiado : dicc.btnCopiarMail}</span>
-                        </button>
+                        <div className="space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => redirigirWhatsapp(item, esDespachantes)}
+                            className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 px-3 rounded-lg transition-colors shadow-sm cursor-pointer"
+                          >
+                            <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                              <path d="M20.52 3.48A11.82 11.82 0 0012.06 0C5.5 0 .16 5.34.16 11.9c0 2.1.55 4.15 1.6 5.95L0 24l6.32-1.66a11.86 11.86 0 005.74 1.46h.01c6.55 0 11.89-5.34 11.89-11.9 0-3.18-1.24-6.17-3.44-8.42zM12.07 21.8h-.01a9.87 9.87 0 01-5.03-1.38l-.36-.21-3.75.98 1-3.65-.24-.38a9.85 9.85 0 01-1.51-5.26c0-5.45 4.44-9.89 9.9-9.89 2.64 0 5.13 1.03 7 2.9a9.83 9.83 0 012.9 7c0 5.45-4.44 9.89-9.9 9.89zm5.43-7.41c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.88 1.22 3.08.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35z" />
+                            </svg>
+                            <span>{dicc.btnWhatsapp}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => copiarEmailForwarder(item)}
+                            className={`w-full flex items-center justify-center gap-2 font-bold text-xs py-2.5 px-3 rounded-lg transition-colors shadow-sm cursor-pointer ${
+                              copiado
+                                ? "bg-[#3D0411] text-rose-100 ring-2 ring-[#530618]"
+                                : "bg-[#530618] hover:bg-[#3D0411] text-white"
+                            }`}
+                          >
+                            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            <span>{copiado ? dicc.mailCopiado : dicc.btnCopiarMail}</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })()}
       </main>
     </div>
   );

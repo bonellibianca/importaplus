@@ -22,23 +22,15 @@ public static class SeguridadYDigitoVerificadorBLL
 
     public static bool ValidarFortalezaPassword(string? passwordPlano, out string mensajeError)
     {
-        if (string.IsNullOrWhiteSpace(passwordPlano) || passwordPlano.Length < 8)
+        if (string.IsNullOrWhiteSpace(passwordPlano) || passwordPlano.Length < 4)
         {
-            mensajeError = "La nueva contraseña debe tener al menos 8 caracteres.";
+            mensajeError = "La contraseña debe tener al menos 4 caracteres.";
             return false;
         }
 
         if (passwordPlano.Length > 72)
         {
             mensajeError = "La contraseña no debe superar los 72 caracteres (límite criptográfico BCrypt).";
-            return false;
-        }
-
-        bool tieneLetra = passwordPlano.Any(char.IsLetter);
-        bool tieneDigito = passwordPlano.Any(char.IsDigit);
-        if (!tieneLetra || !tieneDigito)
-        {
-            mensajeError = "La nueva contraseña debe combinar al menos una letra y un número.";
             return false;
         }
 
@@ -123,6 +115,9 @@ public static class SeguridadYDigitoVerificadorBLL
     public static string CalcularDvhForwarder(ForwarderBE f) =>
         Sha256Hex($"{f.Id.ToString().ToLowerInvariant()}|{(f.Nombre ?? "").Trim()}|{(f.ImagenUrl ?? "").Trim()}|{(f.Whatsapp ?? "").Trim()}|{(f.Email ?? "").Trim()}|{f.Orden}|{(f.Activo ? "1" : "0")}");
 
+    public static string CalcularDvhDespachante(DespachanteBE d) =>
+        Sha256Hex($"{d.Id.ToString().ToLowerInvariant()}|{(d.Nombre ?? "").Trim()}|{(d.ImagenUrl ?? "").Trim()}|{(d.Whatsapp ?? "").Trim()}|{(d.Email ?? "").Trim()}|{d.Orden}|{(d.Activo ? "1" : "0")}");
+
     public static string CalcularDvhPuerto(PuertoAduanaBE p) =>
         Sha256Hex($"{p.Id.ToString().ToLowerInvariant()}|{(p.Nombre ?? "").Trim()}|{(p.ViaIngreso ?? "").Trim()}|{(p.Provincia ?? "").Trim()}|{(p.CodigoSim ?? "").Trim()}|{(p.Operador ?? "").Trim()}");
 
@@ -143,10 +138,6 @@ public static class SeguridadYDigitoVerificadorBLL
         return Sha256Hex(concatenado);
     }
 
-    /// <summary>
-    /// Verifica tanto DVH (Horizontal fila por fila) como DVV (Vertical por tabla) e identifica
-    /// exactamente qué tabla, qué registro y qué dato/columna fue alterado, eliminado o agregado.
-    /// </summary>
     public static ResultadoVerificacionDV VerificarBaseCompleta(BaseDatosCompletaBE db)
     {
         var resultado = new ResultadoVerificacionDV();
@@ -186,6 +177,29 @@ public static class SeguridadYDigitoVerificadorBLL
             },
             mapaDvv
         );
+
+        // Si ya existe control DVV para despachantes (o registros cargados con DVH), auditarlo también
+        if (mapaDvv.ContainsKey("despachantes"))
+        {
+            VerificarTablaGenerica(
+                resultado,
+                "despachantes",
+                db.Despachantes,
+                d => d.Id.ToString().ToLowerInvariant(),
+                d => d.Dvh,
+                CalcularDvhDespachante,
+                d => new Dictionary<string, string>
+                {
+                    ["nombre"] = d.Nombre,
+                    ["imagen_url"] = d.ImagenUrl,
+                    ["whatsapp"] = d.Whatsapp,
+                    ["email"] = d.Email,
+                    ["orden"] = d.Orden.ToString(CultureInfo.InvariantCulture),
+                    ["activo"] = d.Activo.ToString().ToLowerInvariant()
+                },
+                mapaDvv
+            );
+        }
 
         VerificarTablaGenerica(
             resultado,
@@ -306,7 +320,6 @@ public static class SeguridadYDigitoVerificadorBLL
             var camposActuales = extraerMapaCampos(fila);
             snapshotPorPk.TryGetValue(pk, out var snapAnterior);
 
-            // 1. Validar Dígito Verificador Horizontal (DVH)
             if (!string.Equals(dvhGuardado, dvhCalculado, StringComparison.OrdinalIgnoreCase))
             {
                 string detalleCampos = DescribirDiferenciasCampos(snapAnterior?.Campos, camposActuales);
@@ -316,7 +329,6 @@ public static class SeguridadYDigitoVerificadorBLL
             }
             else if (snapAnterior != null && !string.Equals(snapAnterior.Dvh, dvhCalculado, StringComparison.OrdinalIgnoreCase))
             {
-                // Alguien modificó la fila Y además intentó falsificar el DVH sin actualizar el DVV vertical
                 string detalleCampos = DescribirDiferenciasCampos(snapAnterior.Campos, camposActuales);
                 resultado.Alteraciones.Add(
                     $"⚠ [ALTERACIÓN CON DVH REESCRITO] Tabla '{nombreTabla}' · Registro [{pk}]: {detalleCampos}");
@@ -329,7 +341,6 @@ public static class SeguridadYDigitoVerificadorBLL
             }
         }
 
-        // 2. Detectar filas eliminadas externamente comparando contra el control vertical
         if (registroDvv != null)
         {
             foreach (var snap in snapshotPorPk.Values)
@@ -410,13 +421,11 @@ public static class SeguridadYDigitoVerificadorBLL
         return hash.Length > 12 ? hash[..12] + "..." : hash;
     }
 
-    /// <summary>
-    /// Recalcula todos los DVH horizontales y todos los DVV verticales + snapshots sobre el objeto de base de datos.
-    /// </summary>
     public static void RecalcularTodoEnMemoria(BaseDatosCompletaBE db, string usuario = "Admin")
     {
         foreach (var u in db.AdminUsuarios) u.Dvh = CalcularDvhAdmin(u);
         foreach (var f in db.Forwarders) f.Dvh = CalcularDvhForwarder(f);
+        foreach (var d in db.Despachantes) d.Dvh = CalcularDvhDespachante(d);
         foreach (var p in db.PuertosAduanas) p.Dvh = CalcularDvhPuerto(p);
         foreach (var p in db.Paises) p.Dvh = CalcularDvhPais(p);
         foreach (var n in db.NcmCatalogo) n.Dvh = CalcularDvhNcm(n);
@@ -462,6 +471,28 @@ public static class SeguridadYDigitoVerificadorBLL
                         ["email"] = f.Email,
                         ["orden"] = f.Orden.ToString(CultureInfo.InvariantCulture),
                         ["activo"] = f.Activo.ToString().ToLowerInvariant()
+                    }
+                }).ToList()
+            },
+            new()
+            {
+                TablaNombre = "despachantes",
+                Dvv = CalcularDvvDesdeDvhs(db.Despachantes.Select(x => x.Dvh)),
+                CantidadRegistros = db.Despachantes.Count,
+                UpdatedAt = ahora,
+                UpdatedBy = usuario,
+                SnapshotControl = db.Despachantes.OrderBy(x => x.Orden).Select(d => new SnapshotFilaBE
+                {
+                    Pk = d.Id.ToString().ToLowerInvariant(),
+                    Dvh = d.Dvh,
+                    Campos = new Dictionary<string, object?>
+                    {
+                        ["nombre"] = d.Nombre,
+                        ["imagen_url"] = d.ImagenUrl,
+                        ["whatsapp"] = d.Whatsapp,
+                        ["email"] = d.Email,
+                        ["orden"] = d.Orden.ToString(CultureInfo.InvariantCulture),
+                        ["activo"] = d.Activo.ToString().ToLowerInvariant()
                     }
                 }).ToList()
             },

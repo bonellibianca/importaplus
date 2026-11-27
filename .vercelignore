@@ -1,0 +1,6 @@
+# Excluir aplicación de escritorio Windows (.NET 9 WinForms) y archivos duplicados de diseño/SQL en el build de Vercel
+/AdminImportaPlus/
+/Diseño/
+/Base_ImportaPlus.sql
+/IMPORTA_PLUS_NOMENCLADOR_CON_COLUMNAS.xlsx
+/Nomenclatura_NCM_aranceles.xlsx

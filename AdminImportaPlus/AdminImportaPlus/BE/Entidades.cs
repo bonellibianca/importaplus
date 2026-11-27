@@ -6,18 +6,32 @@ namespace AdminImportaPlus.BE;
 
 public sealed class SupabaseConfigBE
 {
-    public string SupabaseUrl { get; set; } = string.Empty;
+    public const string DefaultProjectUrl = "https://exqyupuliqxsxejgouho.supabase.co";
+    public const string DefaultPublishableKey = "sb_publishable_HPs_CdVHnpT1PqyRUwfz9Q_g5rBulj_";
+
+    public string SupabaseUrl { get; set; } = DefaultProjectUrl;
     public string ServiceRoleKey { get; set; } = string.Empty;
-    public string AnonKey { get; set; } = string.Empty;
+    public string AnonKey { get; set; } = DefaultPublishableKey;
     public string WebWorkspacePath { get; set; } = string.Empty;
+
+    [JsonIgnore]
+    public bool EsPublishableEnCampoSecreto =>
+        !string.IsNullOrWhiteSpace(ServiceRoleKey) &&
+        ServiceRoleKey.Trim().StartsWith("sb_publishable_", StringComparison.OrdinalIgnoreCase);
+
+    [JsonIgnore]
+    public bool TieneClaveSecretaValida =>
+        !string.IsNullOrWhiteSpace(ServiceRoleKey) &&
+        !EsPublishableEnCampoSecreto &&
+        !ServiceRoleKey.Contains("tu-service-role-key", StringComparison.OrdinalIgnoreCase) &&
+        !ServiceRoleKey.EndsWith("...", StringComparison.Ordinal);
 
     [JsonIgnore]
     public bool EstaConfiguradoEnNube =>
         !string.IsNullOrWhiteSpace(SupabaseUrl) &&
         SupabaseUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase) &&
         !SupabaseUrl.Contains("TU_PROJECT_REF", StringComparison.OrdinalIgnoreCase) &&
-        !string.IsNullOrWhiteSpace(ServiceRoleKey) &&
-        !ServiceRoleKey.EndsWith("...", StringComparison.Ordinal);
+        TieneClaveSecretaValida;
 }
 
 public sealed class AdminUsuarioBE
@@ -25,14 +39,29 @@ public sealed class AdminUsuarioBE
     [JsonPropertyName("id")]
     public Guid Id { get; set; } = Guid.NewGuid();
 
+    [JsonPropertyName("dni")]
+    public int Dni { get; set; } = 11111111;
+
+    [JsonPropertyName("nombre")]
+    public string Nombre { get; set; } = "Administrador";
+
+    [JsonPropertyName("apellido")]
+    public string Apellido { get; set; } = "General";
+
     [JsonPropertyName("username")]
     public string Username { get; set; } = "Admin";
 
     [JsonPropertyName("password_hash")]
     public string PasswordHash { get; set; } = string.Empty;
 
+    [JsonPropertyName("bloqueado")]
+    public bool Bloqueado { get; set; } = false;
+
     [JsonPropertyName("activo")]
     public bool Activo { get; set; } = true;
+
+    [JsonPropertyName("perfil_id")]
+    public Guid? PerfilId { get; set; }
 
     [JsonPropertyName("ultimo_acceso")]
     public DateTimeOffset? UltimoAcceso { get; set; }
@@ -45,6 +74,33 @@ public sealed class AdminUsuarioBE
 }
 
 public sealed class ForwarderBE
+{
+    [JsonPropertyName("id")]
+    public Guid Id { get; set; } = Guid.NewGuid();
+
+    [JsonPropertyName("nombre")]
+    public string Nombre { get; set; } = string.Empty; // Máximo 120 caracteres
+
+    [JsonPropertyName("imagen_url")]
+    public string ImagenUrl { get; set; } = string.Empty;
+
+    [JsonPropertyName("whatsapp")]
+    public string Whatsapp { get; set; } = string.Empty;
+
+    [JsonPropertyName("email")]
+    public string Email { get; set; } = string.Empty;
+
+    [JsonPropertyName("orden")]
+    public int Orden { get; set; } = 1;
+
+    [JsonPropertyName("activo")]
+    public bool Activo { get; set; } = true;
+
+    [JsonPropertyName("dvh")]
+    public string Dvh { get; set; } = string.Empty;
+}
+
+public sealed class DespachanteBE
 {
     [JsonPropertyName("id")]
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -206,6 +262,7 @@ public sealed class BaseDatosCompletaBE
 {
     public List<AdminUsuarioBE> AdminUsuarios { get; set; } = new();
     public List<ForwarderBE> Forwarders { get; set; } = new();
+    public List<DespachanteBE> Despachantes { get; set; } = new();
     public List<PuertoAduanaBE> PuertosAduanas { get; set; } = new();
     public List<PaisBE> Paises { get; set; } = new();
     public List<NcmPosicionBE> NcmCatalogo { get; set; } = new();
@@ -221,7 +278,7 @@ public sealed class BaseDatosCompletaBE
 public sealed class BackupPackageBE
 {
     public string Sistema { get; set; } = "IMPORTA+ ADMIN (.NET 9)";
-    public string Version { get; set; } = "1.0.0";
+    public string Version { get; set; } = "1.1.0";
     public DateTimeOffset FechaBackup { get; set; } = DateTimeOffset.UtcNow;
     public string GeneradoPor { get; set; } = "Admin";
     public string FirmaIntegridadSha256 { get; set; } = string.Empty;

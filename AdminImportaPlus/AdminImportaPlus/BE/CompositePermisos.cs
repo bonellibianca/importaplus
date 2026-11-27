@@ -6,13 +6,16 @@ namespace AdminImportaPlus.BE;
 
 /// <summary>
 /// Patrón de Diseño GoF: COMPOSITE (Componente Base Abstracto)
-/// Permite tratar de forma uniforme tanto a un Permiso Simple (Hoja) como a una Familia de Permisos (Compuesto).
+/// Regla de Dominio Intuitiva: Un Permiso Simple (Hoja) ES UN BOTÓN real de la interfaz.
+/// En la lista de permisos únicamente aparecen BOTONES; si un Perfil posee dicho permiso
+/// (de forma directa o heredado por una Familia), el usuario con ese Perfil tiene habilitado/visible ese botón.
 /// </summary>
 public abstract class ComponentePermiso
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    public string Codigo { get; set; } = string.Empty;
-    public string Nombre { get; set; } = string.Empty;
+    public string Codigo { get; set; } = string.Empty; // Exactamente el Control.Name del Botón (ej: btnGuardarFwd) o código de Familia
+    public string Nombre { get; set; } = string.Empty; // Etiqueta legible del Botón o de la Familia
+    public string NombreFormulario { get; set; } = "FrmPanelAdmin";
     public abstract bool EsFamilia { get; }
 
     public abstract IReadOnlyList<ComponentePermiso> ObtenerHijos();
@@ -20,14 +23,14 @@ public abstract class ComponentePermiso
     public abstract void Agregar(ComponentePermiso hijo);
     public abstract void Remover(ComponentePermiso hijo);
 
-    public bool ContienePermiso(string codigo) =>
-        ObtenerCodigosEfectivos().Contains((codigo ?? string.Empty).Trim().ToUpperInvariant());
+    public bool ContienePermiso(string codigoBoton) =>
+        ObtenerCodigosEfectivos().Contains((codigoBoton ?? string.Empty).Trim());
 
-    public override string ToString() => EsFamilia ? $"[Familia] {Nombre}" : $"{Nombre} ({Codigo})";
+    public override string ToString() => EsFamilia ? $"[Familia] {Nombre}" : Nombre;
 }
 
 /// <summary>
-/// Hoja (Leaf) del Patrón Composite: representa un permiso atómico individual del sistema.
+/// Hoja (Leaf) del Patrón Composite: representa un BOTÓN concreto del sistema.
 /// </summary>
 public sealed class PermisoSimple : ComponentePermiso
 {
@@ -36,17 +39,17 @@ public sealed class PermisoSimple : ComponentePermiso
     public override IReadOnlyList<ComponentePermiso> ObtenerHijos() => Array.Empty<ComponentePermiso>();
 
     public override HashSet<string> ObtenerCodigosEfectivos() =>
-        new(StringComparer.OrdinalIgnoreCase) { Codigo.Trim().ToUpperInvariant() };
+        new(StringComparer.OrdinalIgnoreCase) { Codigo.Trim() };
 
     public override void Agregar(ComponentePermiso hijo) =>
-        throw new InvalidOperationException("Un permiso simple (hoja) no puede contener hijos.");
+        throw new InvalidOperationException("Un botón (permiso hoja) no puede contener hijos.");
 
     public override void Remover(ComponentePermiso hijo) =>
-        throw new InvalidOperationException("Un permiso simple (hoja) no contiene hijos.");
+        throw new InvalidOperationException("Un botón (permiso hoja) no contiene hijos.");
 }
 
 /// <summary>
-/// Compuesto (Composite): agrupa permisos simples y/o sub-familias de permisos.
+/// Compuesto (Composite): Familia que agrupa Botones (Permisos Simples) y/o Sub-Familias.
 /// </summary>
 public sealed class FamiliaPermisos : ComponentePermiso
 {
@@ -73,17 +76,17 @@ public sealed class FamiliaPermisos : ComponentePermiso
     {
         if (hijo == null) throw new ArgumentNullException(nameof(hijo));
         if (hijo.Id == Id)
-            throw new InvalidOperationException("Una familia no puede agregarse a sí misma.");
+            throw new InvalidOperationException("Error de recursividad: Una familia no puede contenerse a sí misma.");
 
         if (hijo is FamiliaPermisos subFamilia && subFamilia.ContieneComponenteId(Id))
-            throw new InvalidOperationException($"Ciclo detectado: la familia '{subFamilia.Nombre}' ya contiene a '{Nombre}'.");
+            throw new InvalidOperationException($"Bucle detectado: No puede agregar '{subFamilia.Nombre}' dentro de '{Nombre}' porque '{Nombre}' ya está dentro de '{subFamilia.Nombre}'.");
 
         var actuales = ObtenerCodigosEfectivos();
         var nuevos = hijo.ObtenerCodigosEfectivos();
         var duplicados = actuales.Intersect(nuevos, StringComparer.OrdinalIgnoreCase).ToList();
         if (duplicados.Count > 0)
             throw new InvalidOperationException(
-                $"Regla de unicidad: la familia '{Nombre}' ya contiene el/los permiso(s): {string.Join(", ", duplicados)}.");
+                $"Regla de unicidad: la familia '{Nombre}' ya contiene el/los botón(es): {string.Join(", ", duplicados)}.");
 
         _hijos.Add(hijo);
     }
@@ -106,8 +109,8 @@ public sealed class FamiliaPermisos : ComponentePermiso
 }
 
 /// <summary>
-/// Perfil de Usuario (Rol): agrupa Permisos Simples y/o Familias de Permisos garantizando
-/// estrictamente que NINGÚN permiso atómico pueda asignarse dos veces al mismo perfil.
+/// Perfil de Usuario (Rol): agrupa Botones (Permisos) y/o Familias de Botones garantizando
+/// que ningún botón pueda asignarse dos veces al mismo perfil.
 /// </summary>
 public sealed class PerfilBE
 {
@@ -120,13 +123,24 @@ public sealed class PerfilBE
 }
 
 /// <summary>
-/// DTOs planos para persistencia JSON del árbol Composite (Permisos, Familias y Perfiles).
+/// Fila visual para las 3 grillas de Gestión de Perfiles (idéntico al modelo de ING-SOFTWARE-BritezG).
+/// </summary>
+public sealed class ItemGrillaRbacBE
+{
+    public Guid Id { get; set; }
+    public string Codigo { get; set; } = string.Empty;
+    public string Nombre { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// DTOs planos para persistencia JSON / Supabase del árbol Composite (Botones, Familias, Perfiles y Metadatos de Usuario).
 /// </summary>
 public sealed class PermisoDto
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    public string Codigo { get; set; } = string.Empty;
-    public string Nombre { get; set; } = string.Empty;
+    public string Codigo { get; set; } = string.Empty; // Nombre exacto del control Botón (ej: btnGuardarFwd)
+    public string Nombre { get; set; } = string.Empty; // Texto descriptivo del Botón en la grilla
+    public string NombreFormulario { get; set; } = "FrmPanelAdmin";
 }
 
 public sealed class FamiliaDto
@@ -137,10 +151,22 @@ public sealed class FamiliaDto
     public List<Guid> HijosIds { get; set; } = new();
 }
 
+public sealed class UsuarioFichaExtendidaDto
+{
+    public string Username { get; set; } = string.Empty;
+    public int Dni { get; set; } = 11111111;
+    public string Nombre { get; set; } = string.Empty;
+    public string Apellido { get; set; } = string.Empty;
+    public bool Bloqueado { get; set; }
+    public Guid PerfilId { get; set; }
+}
+
 public sealed class RolesStoreBE
 {
+    public int SchemaVersion { get; set; } = 2; // Versión 2: Permiso == Botón exclusivamente
     public List<PermisoDto> Permisos { get; set; } = new();
     public List<FamiliaDto> Familias { get; set; } = new();
     public List<PerfilBE> Perfiles { get; set; } = new();
     public Dictionary<string, Guid> PerfilPorUsuario { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public List<UsuarioFichaExtendidaDto> FichasUsuarios { get; set; } = new();
 }

@@ -100,6 +100,74 @@ function renderForwardersGrid(ctrl) {
   `;
 }
 
+/**
+ * Renderiza la Grilla de 4 Cuadrados de Despachantes de Aduana (Misma interfaz que Forwarders, mostrando solo Despachantes)
+ */
+function renderDespachantesGrid(ctrl) {
+  const despachantes = ctrl.state.despachantesCatalogo || [];
+  if (despachantes.length === 0) return '';
+
+  return `
+    <div class="bg-white border border-[#D8DDE3] rounded-sm p-6 shadow-sm">
+      <div class="border-b border-[#F4F6F8] pb-3 mb-5 text-left">
+        <span class="text-xs font-bold uppercase tracking-widest text-[#530618]">${ctrl.escapeHtml(ctrl.t('despTag'))}</span>
+        <h3 class="text-xl md:text-2xl font-bold text-[#171717] mt-0.5">${ctrl.escapeHtml(ctrl.t('despTitulo'))}</h3>
+        <p class="text-xs text-[#555555] mt-1">${ctrl.escapeHtml(ctrl.t('despSubtitulo'))}</p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 text-left">
+        ${despachantes.map((desp, idx) => {
+          const nombreMax120 = String(desp.nombre || '').slice(0, 120);
+          const copiado = ctrl.state.mailCopiadoId === desp.id;
+          return `
+            <div class="bg-[#FFF8F8] border border-[#F0D0D4] rounded-sm overflow-hidden shadow-sm hover:border-[#530618] transition-all flex flex-col justify-between">
+              <div class="w-full aspect-square bg-gray-200 overflow-hidden">
+                <img
+                  src="${ctrl.escapeHtml(desp.imagen_url || 'logo-importa.png')}"
+                  alt="${ctrl.escapeHtml(nombreMax120)}"
+                  loading="lazy"
+                  onerror="this.onerror=null;this.src='logo-importa.png';"
+                  class="w-full h-full object-cover"
+                />
+              </div>
+
+              <div class="p-4 flex flex-col flex-1 justify-between gap-3">
+                <h4 class="text-sm font-bold text-[#171717] text-center leading-snug break-words" title="${ctrl.escapeHtml(nombreMax120)}">
+                  ${ctrl.escapeHtml(nombreMax120)}
+                </h4>
+
+                <div class="space-y-2">
+                  <button
+                    type="button"
+                    onclick="window.app.redirigirWhatsappDespachante(${idx})"
+                    class="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 px-3 rounded-sm transition-colors shadow-sm cursor-pointer"
+                  >
+                    <svg class="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                      <path d="M20.52 3.48A11.82 11.82 0 0012.06 0C5.5 0 .16 5.34.16 11.9c0 2.1.55 4.15 1.6 5.95L0 24l6.32-1.66a11.86 11.86 0 005.74 1.46h.01c6.55 0 11.89-5.34 11.89-11.9 0-3.18-1.24-6.17-3.44-8.42zM12.07 21.8h-.01a9.87 9.87 0 01-5.03-1.38l-.36-.21-3.75.98 1-3.65-.24-.38a9.85 9.85 0 01-1.51-5.26c0-5.45 4.44-9.89 9.9-9.89 2.64 0 5.13 1.03 7 2.9a9.83 9.83 0 012.9 7c0 5.45-4.44 9.89-9.9 9.89zm5.43-7.41c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.88 1.22 3.08.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35z" />
+                    </svg>
+                    <span>${ctrl.escapeHtml(ctrl.t('btnWhatsapp'))}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onclick="window.app.copiarMailDespachante(${idx})"
+                    class="w-full flex items-center justify-center gap-2 ${copiado ? 'bg-[#3D0411] text-rose-100 ring-2 ring-[#530618]' : 'bg-[#530618] hover:bg-[#3D0411] text-white'} font-bold text-xs py-2.5 px-3 rounded-sm transition-colors shadow-sm cursor-pointer"
+                  >
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <span>${ctrl.escapeHtml(copiado ? ctrl.t('mailCopiado') : ctrl.t('btnCopiarMail'))}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
 class HeroState extends VistaState {
   render(ctrl) {
     return `
@@ -262,14 +330,19 @@ class FormularioState extends VistaState {
             </div>
 
             <div class="px-6 py-5">
-              <div class="flex items-center justify-between mb-2">
-                <div class="flex items-center gap-2">
+              <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
+                <div class="flex items-center gap-2 pt-1">
                   <p class="text-xs font-bold uppercase tracking-widest text-[#530618]">${ctrl.escapeHtml(ctrl.t('costosAdicionales'))}</p>
                   <span class="text-[10px] font-semibold border border-[#D8DDE3] text-[#555555] px-1.5 py-0.5 rounded-sm uppercase tracking-wide">${ctrl.escapeHtml(ctrl.t('opcional'))}</span>
                 </div>
-                <button type="button" onclick="window.app.setView('contact')" class="bg-[#530618] hover:bg-[#3D0411] text-white text-xs font-semibold px-3 py-1.5 rounded-sm transition-colors duration-200 shadow-sm cursor-pointer">
-                  ${ctrl.escapeHtml(ctrl.t('btnContactarForwarder'))}
-                </button>
+                <div class="flex flex-col items-stretch sm:items-end gap-1.5">
+                  <button type="button" onclick="window.app.setView('contact')" class="bg-[#530618] hover:bg-[#3D0411] text-white text-xs font-semibold px-3 py-1.5 rounded-sm transition-colors duration-200 shadow-sm cursor-pointer">
+                    ${ctrl.escapeHtml(ctrl.t('btnContactarForwarder'))}
+                  </button>
+                  <button type="button" onclick="window.app.setView('despachantes')" class="bg-[#530618] hover:bg-[#3D0411] text-white text-xs font-semibold px-3 py-1.5 rounded-sm transition-colors duration-200 shadow-sm cursor-pointer">
+                    ${ctrl.escapeHtml(ctrl.t('btnContactarDespachante'))}
+                  </button>
+                </div>
               </div>
 
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
@@ -583,8 +656,11 @@ class ResultadosState extends VistaState {
             <button onclick="window.app.setView('breakdown')" class="w-full bg-[#530618] hover:bg-[#3D0411] text-white font-bold text-sm uppercase tracking-widest py-4 rounded-sm transition-colors duration-200 mb-3 shadow-md cursor-pointer">
               ${ctrl.escapeHtml(ctrl.t('btnVerDesglose'))}
             </button>
-            <button onclick="window.app.setView('contact')" class="w-full bg-[#3D0411] hover:bg-[#530618] text-white font-bold text-xs uppercase tracking-widest py-3.5 rounded-sm transition-colors duration-200 mb-3 shadow-sm cursor-pointer">
+            <button onclick="window.app.setView('contact')" class="w-full bg-[#3D0411] hover:bg-[#530618] text-white font-bold text-xs uppercase tracking-widest py-3.5 rounded-sm transition-colors duration-200 mb-2 shadow-sm cursor-pointer">
               ${ctrl.escapeHtml(ctrl.t('btnContactarForwarder'))}
+            </button>
+            <button onclick="window.app.setView('despachantes')" class="w-full bg-[#3D0411] hover:bg-[#530618] text-white font-bold text-xs uppercase tracking-widest py-3.5 rounded-sm transition-colors duration-200 mb-3 shadow-sm cursor-pointer">
+              ${ctrl.escapeHtml(ctrl.t('btnContactarDespachante'))}
             </button>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
               <button onclick="window.print()" class="w-full bg-[#530618] hover:bg-[#3D0411] text-white font-bold text-xs uppercase tracking-widest py-3.5 rounded-sm transition-colors duration-200 shadow-md flex items-center justify-center gap-2 cursor-pointer">
@@ -686,19 +762,8 @@ class DesgloseState extends VistaState {
           </div>
 
           <div class="print:hidden space-y-3">
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button onclick="window.print()" class="w-full bg-[#530618] hover:bg-[#3D0411] text-white font-bold text-xs uppercase tracking-widest py-3.5 rounded-sm transition-colors duration-200 shadow-md flex items-center justify-center gap-2 cursor-pointer">
-                ${ctrl.escapeHtml(ctrl.t('btnImprimirPdf'))}
-              </button>
-              <button onclick="window.ExcelDataLoaderDAL && window.ExcelDataLoaderDAL.exportarComprobanteExcel(window.app.state.calculadoraBE)" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs uppercase tracking-widest py-3.5 rounded-sm transition-colors duration-200 shadow-md flex items-center justify-center cursor-pointer">
-                ${ctrl.escapeHtml(ctrl.t('btnExportarExcel'))}
-              </button>
-            </div>
             <button onclick="window.app.setView('ports')" class="w-full border border-[#530618] text-[#530618] hover:bg-[#530618] hover:text-white font-bold text-sm uppercase tracking-widest py-3.5 rounded-sm transition-colors duration-200 cursor-pointer">
               ${ctrl.escapeHtml(ctrl.t('verPuertos'))}
-            </button>
-            <button onclick="window.app.setView('contact')" class="w-full bg-[#3D0411] hover:bg-[#530618] text-white font-bold text-xs uppercase tracking-widest py-3.5 rounded-sm transition-colors duration-200 cursor-pointer">
-              ${ctrl.escapeHtml(ctrl.t('btnContactarForwarder'))}
             </button>
             <button onclick="window.app.setView('results')" class="w-full border border-[#D8DDE3] text-[#555555] hover:border-[#530618] hover:text-[#530618] font-semibold text-sm py-3.5 rounded-sm transition-colors duration-200 cursor-pointer">
               ${ctrl.escapeHtml(ctrl.t('volverResultados'))}
@@ -796,6 +861,42 @@ class ContactoState extends VistaState {
   }
 }
 
+/**
+ * Estado Despachantes de Aduana - Misma interfaz de 4 cuadrados estilo grilla mostrando únicamente los Despachantes de Aduana
+ */
+class DespachantesState extends VistaState {
+  render(ctrl) {
+    return `
+      <div class="min-h-screen bg-[#F4F6F8]">
+        <header class="bg-[#420213] px-6 py-4 flex items-center justify-between shadow-sm">
+          <div class="flex items-center cursor-pointer" onclick="window.app.setView('hero')">
+            ${renderBrandBadge('h-6 md:h-7')}
+          </div>
+          <div class="flex items-center gap-3">
+            ${renderLanguageToggleButton(ctrl)}
+            <button onclick="window.app.state.calculadoraBE ? window.app.setView('results') : window.app.setView('form')" class="text-white/70 text-xs font-medium hover:text-white transition-colors">
+              ${ctrl.escapeHtml(ctrl.t('volver'))}
+            </button>
+          </div>
+        </header>
+
+        <div class="max-w-5xl mx-auto px-4 py-10 space-y-6">
+          ${renderDespachantesGrid(ctrl)}
+
+          <div class="text-center pt-2">
+            <button
+              onclick="window.app.state.calculadoraBE ? window.app.setView('results') : window.app.setView('form')"
+              class="inline-flex items-center justify-center bg-[#530618] hover:bg-[#3D0411] text-white font-bold text-xs uppercase tracking-widest px-8 py-3.5 rounded-sm transition-colors shadow cursor-pointer"
+            >
+              ${ctrl.escapeHtml(ctrl.t('volver'))}
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+}
+
 class PlanesState extends VistaState {
   render(ctrl) {
     return `
@@ -829,5 +930,6 @@ if (typeof window !== 'undefined') {
   window.DesgloseState = DesgloseState;
   window.PuertosState = PuertosState;
   window.ContactoState = ContactoState;
+  window.DespachantesState = DespachantesState;
   window.PlanesState = PlanesState;
 }

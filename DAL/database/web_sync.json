@@ -1,5 +1,5 @@
-﻿{
-  "updatedAt": "2026-11-25T12:00:00.0000000+00:00",
+{
+  "updatedAt": "2026-11-27T21:40:18.2052783+00:00",
   "forwarders": [
     {
       "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
@@ -38,6 +38,44 @@
       "activo": true
     }
   ],
+  "despachantes": [
+    {
+      "id": "e1111111-1111-1111-1111-111111111111",
+      "nombre": "Bonelli & Asociados Despachantes DGA",
+      "imagen_url": "https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=600&q=80",
+      "whatsapp": "+5491143218800",
+      "email": "despachos@importaplus.com.ar",
+      "orden": 1,
+      "activo": true
+    },
+    {
+      "id": "e2222222-2222-2222-2222-222222222222",
+      "nombre": "Ezeiza Express Despachos Aduaneros",
+      "imagen_url": "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=600&q=80",
+      "whatsapp": "+5491144802233",
+      "email": "ezeiza@importaplus.com.ar",
+      "orden": 2,
+      "activo": true
+    },
+    {
+      "id": "e3333333-3333-3333-3333-333333333333",
+      "nombre": "Estudio Aduanero Río de la Plata",
+      "imagen_url": "https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=600&q=80",
+      "whatsapp": "+5491150903344",
+      "email": "aduanas@importaplus.com.ar",
+      "orden": 3,
+      "activo": true
+    },
+    {
+      "id": "e4444444-4444-4444-4444-444444444444",
+      "nombre": "Andes & Pacífico Despachantes Matriculados",
+      "imagen_url": "https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=600&q=80",
+      "whatsapp": "+5492614205544",
+      "email": "cuyo@importaplus.com.ar",
+      "orden": 4,
+      "activo": true
+    }
+  ],
   "puertos": [
     {
       "id": "22222222-2222-2222-2222-222222222222",
@@ -47,8 +85,8 @@
       "codigo_sim": "ADU-073-EZE",
       "operador": "ARCA-DGA / Aeropuertos Argentina 2000",
       "infraestructura": "Terminal de Cargas Aéreas (TCA) con cámaras frigoríficas y depósito fiscal.",
-      "latitud": -34.822200,
-      "longitud": -58.535800
+      "latitud": -34.8222,
+      "longitud": -58.5358
     },
     {
       "id": "44444444-4444-4444-4444-444444444444",
@@ -58,8 +96,8 @@
       "codigo_sim": "ADU-042-PCR",
       "operador": "Gendarmería Nacional / ARCA-DGA",
       "infraestructura": "Complejo Fronterizo Los Horcones - Corredor Bioceánico.",
-      "latitud": -32.835300,
-      "longitud": -70.064900
+      "latitud": -32.8353,
+      "longitud": -70.0649
     },
     {
       "id": "11111111-1111-1111-1111-111111111111",
@@ -69,8 +107,8 @@
       "codigo_sim": "ADU-001-PBA",
       "operador": "AGPSE (Administración General de Puertos)",
       "infraestructura": "Terminales 1, 2, 3, 4 y 5 (Puerto Nuevo). Escáneres de alta penetración.",
-      "latitud": -34.598500,
-      "longitud": -58.373100
+      "latitud": -34.5985,
+      "longitud": -58.3731
     },
     {
       "id": "55555555-5555-5555-5555-555555555555",
@@ -80,8 +118,8 @@
       "codigo_sim": "ADU-038-MDP",
       "operador": "Consorcio Portuario Regional Mar del Plata",
       "infraestructura": "Terminal de contenedores y carga frigorífica industrial regional.",
-      "latitud": -38.005500,
-      "longitud": -57.542600
+      "latitud": -38.0055,
+      "longitud": -57.5426
     },
     {
       "id": "33333333-3333-3333-3333-333333333333",
@@ -91,8 +129,8 @@
       "codigo_sim": "ADU-052-ROS",
       "operador": "Ente Administrador Puerto Rosario (ENAPRO)",
       "infraestructura": "Muelle de aguas profundas sobre la Hidrovía Paraná-Paraguay.",
-      "latitud": -32.946800,
-      "longitud": -60.639300
+      "latitud": -32.9468,
+      "longitud": -60.6393
     }
   ]
 }

@@ -19,11 +19,12 @@ namespace AdminImportaPlus.DAL;
 
 /// <summary>
 /// Capa DAL (.NET 9): Persistencia Dual sobre Supabase PostgreSQL + Supabase Storage (HTTPS REST API)
-/// con cifrado DPAPI para credenciales sensibles en reposo y espejo local consistente libre de falsos saltos DVH/DVV.
+/// con validación estricta de Secret Key (sb_secret_ / service_role), borrado real en nube y espejo Web sincronizado.
 /// </summary>
 public sealed class RepositorioDatosDAL
 {
     private const string DpapiPrefix = "dpapi:";
+    private const string ClaveParametroDespachantes = "CATALOGO_DESPACHANTES_JSON";
     private static readonly Encoding Utf8SinBom = new UTF8Encoding(false);
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(45) };
 
@@ -144,6 +145,16 @@ public sealed class RepositorioDatosDAL
             catch { }
         }
 
+        if (string.IsNullOrWhiteSpace(cfg.SupabaseUrl) || cfg.SupabaseUrl.Contains("TU_PROJECT_REF", StringComparison.OrdinalIgnoreCase))
+        {
+            cfg.SupabaseUrl = SupabaseConfigBE.DefaultProjectUrl;
+        }
+
+        if (string.IsNullOrWhiteSpace(cfg.AnonKey) || cfg.AnonKey == "tu-anon-key")
+        {
+            cfg.AnonKey = SupabaseConfigBE.DefaultPublishableKey;
+        }
+
         if (string.IsNullOrWhiteSpace(cfg.WebWorkspacePath))
         {
             var dir = new DirectoryInfo(AppBaseDir);
@@ -158,7 +169,7 @@ public sealed class RepositorioDatosDAL
             }
         }
 
-        if (!cfg.EstaConfiguradoEnNube && !string.IsNullOrWhiteSpace(cfg.WebWorkspacePath))
+        if (!cfg.TieneClaveSecretaValida && !string.IsNullOrWhiteSpace(cfg.WebWorkspacePath))
         {
             string envLocal = Path.Combine(cfg.WebWorkspacePath, ".env.local");
             if (File.Exists(envLocal))
@@ -172,14 +183,17 @@ public sealed class RepositorioDatosDAL
                     string k = line[..eq].Trim();
                     string v = line[(eq + 1)..].Trim().Trim('"', '\'');
 
-                    if (k == "NEXT_PUBLIC_SUPABASE_URL" && string.IsNullOrWhiteSpace(cfg.SupabaseUrl)) cfg.SupabaseUrl = v;
-                    else if (k == "SUPABASE_SERVICE_ROLE_KEY" && string.IsNullOrWhiteSpace(cfg.ServiceRoleKey)) cfg.ServiceRoleKey = v;
-                    else if (k == "NEXT_PUBLIC_SUPABASE_ANON_KEY" && string.IsNullOrWhiteSpace(cfg.AnonKey)) cfg.AnonKey = v;
+                    if (k == "NEXT_PUBLIC_SUPABASE_URL" && !string.IsNullOrWhiteSpace(v) && !v.Contains("TU_PROJECT_REF"))
+                        cfg.SupabaseUrl = v;
+                    else if (k == "SUPABASE_SERVICE_ROLE_KEY" && !string.IsNullOrWhiteSpace(v) && !v.StartsWith("sb_publishable_"))
+                        cfg.ServiceRoleKey = v;
+                    else if (k == "NEXT_PUBLIC_SUPABASE_ANON_KEY" && !string.IsNullOrWhiteSpace(v))
+                        cfg.AnonKey = v;
                 }
             }
         }
 
-        if (migrarTextoPlanoADpapi && !string.IsNullOrWhiteSpace(cfg.ServiceRoleKey))
+        if (migrarTextoPlanoADpapi && cfg.TieneClaveSecretaValida)
         {
             PersistirConfigCifradaEnDisco(cfg);
         }
@@ -205,14 +219,19 @@ public sealed class RepositorioDatosDAL
 
     public void GuardarConfiguracion(SupabaseConfigBE nuevaConfig)
     {
-        nuevaConfig.SupabaseUrl = (nuevaConfig.SupabaseUrl ?? string.Empty).Trim().TrimEnd('/');
+        nuevaConfig.SupabaseUrl = string.IsNullOrWhiteSpace(nuevaConfig.SupabaseUrl)
+            ? SupabaseConfigBE.DefaultProjectUrl
+            : nuevaConfig.SupabaseUrl.Trim().TrimEnd('/');
         nuevaConfig.ServiceRoleKey = (nuevaConfig.ServiceRoleKey ?? string.Empty).Trim();
-        nuevaConfig.AnonKey = (nuevaConfig.AnonKey ?? string.Empty).Trim();
+        nuevaConfig.AnonKey = string.IsNullOrWhiteSpace(nuevaConfig.AnonKey)
+            ? SupabaseConfigBE.DefaultPublishableKey
+            : nuevaConfig.AnonKey.Trim();
+
         Config = nuevaConfig;
         PersistirConfigCifradaEnDisco(Config);
 
         string webRoot = ResolverRutaWebWorkspace();
-        if (!string.IsNullOrWhiteSpace(webRoot) && Config.EstaConfiguradoEnNube)
+        if (!string.IsNullOrWhiteSpace(webRoot))
         {
             SincronizarEnvLocalWeb(webRoot);
         }
@@ -228,7 +247,7 @@ public sealed class RepositorioDatosDAL
             sb.AppendLine($"NEXT_PUBLIC_SUPABASE_URL={Config.SupabaseUrl}");
             if (!string.IsNullOrWhiteSpace(Config.AnonKey))
                 sb.AppendLine($"NEXT_PUBLIC_SUPABASE_ANON_KEY={Config.AnonKey}");
-            sb.AppendLine($"SUPABASE_SERVICE_ROLE_KEY={Config.ServiceRoleKey}");
+            sb.AppendLine($"SUPABASE_SERVICE_ROLE_KEY={(Config.TieneClaveSecretaValida ? Config.ServiceRoleKey : string.Empty)}");
             sb.AppendLine("NEXT_PUBLIC_APP_ORIGIN=https://importaplus.com.ar");
             File.WriteAllText(envLocalPath, sb.ToString(), Encoding.UTF8);
         }
@@ -254,13 +273,14 @@ public sealed class RepositorioDatosDAL
         catch { }
     }
 
-    public async Task<BaseDatosCompletaBE> ObtenerBaseDatosActualAsync()
+    public async Task<BaseDatosCompletaBE> ObtenerBaseDatosActualAsync(RolesCompositeBLL? rolesBll = null)
     {
         if (Config.EstaConfiguradoEnNube)
         {
-            var remota = await IntentarLeerDesdeSupabaseAsync();
+            var remota = await IntentarLeerDesdeSupabaseAsync(rolesBll);
             if (remota != null)
             {
+                EnriquecerUsuariosConFichasLocales(remota, rolesBll);
                 GuardarEspejoLocalYSincronizarWeb(remota);
                 return remota;
             }
@@ -274,6 +294,17 @@ public sealed class RepositorioDatosDAL
                     await File.ReadAllTextAsync(LocalDbFilePath, Encoding.UTF8), JsonOpts);
                 if (local != null && local.AdminUsuarios.Count > 0)
                 {
+                    if (local.Despachantes == null || local.Despachantes.Count == 0)
+                    {
+                        // Si viene de una versión anterior sin Despachantes aún, cargar semilla inicial de Despachantes
+                        if (!local.DigitosVerificadores.Any(d => string.Equals(d.TablaNombre, "despachantes", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            local.Despachantes = CrearSemillaDespachantes();
+                            SeguridadYDigitoVerificadorBLL.RecalcularTodoEnMemoria(local, "MIGRATION_DESP");
+                            GuardarEspejoLocalYSincronizarWeb(local);
+                        }
+                    }
+                    EnriquecerUsuariosConFichasLocales(local, rolesBll);
                     return local;
                 }
             }
@@ -281,16 +312,39 @@ public sealed class RepositorioDatosDAL
         }
 
         var semilla = CrearSemillaInicial();
+        EnriquecerUsuariosConFichasLocales(semilla, rolesBll);
         await GuardarBaseDatosCompletaAsync(semilla, sincronizarNube: Config.EstaConfiguradoEnNube);
         return semilla;
     }
 
-    /// <summary>
-    /// Carga la base de datos íntegra (incluyendo Países y NCM desde Supabase si está en nube) para generar Backups completos.
-    /// </summary>
-    public async Task<BaseDatosCompletaBE> ObtenerBaseDatosCompletaParaBackupAsync()
+    private static void EnriquecerUsuariosConFichasLocales(BaseDatosCompletaBE db, RolesCompositeBLL? rolesBll)
     {
-        var db = await ObtenerBaseDatosActualAsync();
+        if (rolesBll == null) return;
+        foreach (var u in db.AdminUsuarios)
+        {
+            var ficha = rolesBll.Store.FichasUsuarios.FirstOrDefault(f =>
+                string.Equals(f.Username, u.Username, StringComparison.OrdinalIgnoreCase));
+
+            if (ficha != null)
+            {
+                if (u.Dni <= 0 || u.Dni == 11111111) u.Dni = ficha.Dni;
+                if (string.IsNullOrWhiteSpace(u.Nombre) || u.Nombre == "Administrador") u.Nombre = ficha.Nombre;
+                if (string.IsNullOrWhiteSpace(u.Apellido) || u.Apellido == "General") u.Apellido = ficha.Apellido;
+                u.Bloqueado = u.Bloqueado || ficha.Bloqueado;
+                u.PerfilId ??= ficha.PerfilId;
+            }
+
+            if (!u.PerfilId.HasValue)
+            {
+                var perf = rolesBll.ObtenerPerfilDeUsuario(u.Username);
+                if (perf != null) u.PerfilId = perf.Id;
+            }
+        }
+    }
+
+    public async Task<BaseDatosCompletaBE> ObtenerBaseDatosCompletaParaBackupAsync(RolesCompositeBLL? rolesBll = null)
+    {
+        var db = await ObtenerBaseDatosActualAsync(rolesBll);
         if (Config.EstaConfiguradoEnNube && (db.Paises.Count == 0 || db.NcmCatalogo.Count == 0))
         {
             try
@@ -305,6 +359,50 @@ public sealed class RepositorioDatosDAL
         return db;
     }
 
+    public static List<DespachanteBE> CrearSemillaDespachantes() => new()
+    {
+        new()
+        {
+            Id = Guid.Parse("e1111111-1111-1111-1111-111111111111"),
+            Nombre = "Bonelli & Asociados Despachantes DGA",
+            ImagenUrl = "https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=600&q=80",
+            Whatsapp = "+5491143218800",
+            Email = "despachos@importaplus.com.ar",
+            Orden = 1,
+            Activo = true
+        },
+        new()
+        {
+            Id = Guid.Parse("e2222222-2222-2222-2222-222222222222"),
+            Nombre = "Ezeiza Express Despachos Aduaneros",
+            ImagenUrl = "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=600&q=80",
+            Whatsapp = "+5491144802233",
+            Email = "ezeiza@importaplus.com.ar",
+            Orden = 2,
+            Activo = true
+        },
+        new()
+        {
+            Id = Guid.Parse("e3333333-3333-3333-3333-333333333333"),
+            Nombre = "Estudio Aduanero Río de la Plata",
+            ImagenUrl = "https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=600&q=80",
+            Whatsapp = "+5491150903344",
+            Email = "aduanas@importaplus.com.ar",
+            Orden = 3,
+            Activo = true
+        },
+        new()
+        {
+            Id = Guid.Parse("e4444444-4444-4444-4444-444444444444"),
+            Nombre = "Andes & Pacífico Despachantes Matriculados",
+            ImagenUrl = "https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=600&q=80",
+            Whatsapp = "+5492614205544",
+            Email = "cuyo@importaplus.com.ar",
+            Orden = 4,
+            Activo = true
+        }
+    };
+
     public BaseDatosCompletaBE CrearSemillaInicial()
     {
         var db = new BaseDatosCompletaBE
@@ -314,9 +412,14 @@ public sealed class RepositorioDatosDAL
                 new()
                 {
                     Id = Guid.Parse("99999999-9999-9999-9999-999999999999"),
+                    Dni = 11111111,
+                    Nombre = "Administrador",
+                    Apellido = "General",
                     Username = "Admin",
                     PasswordHash = SeguridadYDigitoVerificadorBLL.HashearPasswordBcrypt("1234"),
+                    Bloqueado = false,
                     Activo = true,
+                    PerfilId = Guid.Parse("30000002-0000-0000-0000-000000000001"),
                     PasswordUpdatedAt = DateTimeOffset.UtcNow
                 }
             },
@@ -363,6 +466,7 @@ public sealed class RepositorioDatosDAL
                     Activo = true
                 }
             },
+            Despachantes = CrearSemillaDespachantes(),
             PuertosAduanas = new List<PuertoAduanaBE>
             {
                 new()
@@ -456,22 +560,27 @@ public sealed class RepositorioDatosDAL
     public async Task<(bool Ok, string Detalle)> GuardarBaseDatosCompletaAsync(
         BaseDatosCompletaBE db,
         bool sincronizarNube = true,
-        bool reemplazarTablasEnRestore = false)
+        bool reemplazarTablasEnRestore = false,
+        RolesCompositeBLL? rolesBll = null)
     {
         GuardarEspejoLocalYSincronizarWeb(db);
 
-        if (!sincronizarNube || !Config.EstaConfiguradoEnNube)
+        if (!sincronizarNube)
         {
-            return (true, "Guardado en base local y sincronizado con la Web.");
+            return (true, "Guardado en base local y sincronizado con la carpeta Web local.");
         }
 
-        return await SincronizarHaciaSupabaseAsync(db, reemplazarTablasEnRestore);
+        if (!Config.EstaConfiguradoEnNube)
+        {
+            string aviso = Config.EsPublishableEnCampoSecreto
+                ? "⚠ Guardado SOLO EN ESTA PC: en 'SERVICE_ROLE / SECRET KEY' figura una Publishable Key (sb_publishable_...). Ingresá la Secret Key (sb_secret_...) para impactar en Supabase."
+                : "⚠ Guardado SOLO EN ESTA PC (modo local). Para que los cambios impacten en Supabase y se vean desde otras PCs / GitHub, ingresá la Secret Key (sb_secret_...) en 'RestoreBackup y Nube'.";
+            return (true, aviso);
+        }
+
+        return await SincronizarHaciaSupabaseAsync(db, reemplazarTablasEnRestore, rolesBll);
     }
 
-    /// <summary>
-    /// Persiste el espejo local evitando sobrescribir Países/NCM vacíos cuando se opera en modo conteo remoto,
-    /// manteniendo la consistencia matemática DVH/DVV offline y sincronizando tanto Forwarders como Puertos hacia la Web.
-    /// </summary>
     private void GuardarEspejoLocalYSincronizarWeb(BaseDatosCompletaBE db)
     {
         BaseDatosCompletaBE paraDisco = db;
@@ -496,6 +605,7 @@ public sealed class RepositorioDatosDAL
             {
                 AdminUsuarios = db.AdminUsuarios,
                 Forwarders = db.Forwarders,
+                Despachantes = db.Despachantes,
                 PuertosAduanas = db.PuertosAduanas,
                 Paises = db.Paises.Count > 0 ? db.Paises : semillaRespaldo.Paises,
                 NcmCatalogo = db.NcmCatalogo.Count > 0 ? db.NcmCatalogo : semillaRespaldo.NcmCatalogo,
@@ -578,6 +688,20 @@ public sealed class RepositorioDatosDAL
                         activo = f.Activo
                     })
                     .ToList(),
+                despachantes = db.Despachantes
+                    .Where(d => d.Activo)
+                    .OrderBy(d => d.Orden)
+                    .Select(d => new
+                    {
+                        id = d.Id.ToString(),
+                        nombre = d.Nombre.Length > 120 ? d.Nombre[..120] : d.Nombre,
+                        imagen_url = d.ImagenUrl,
+                        whatsapp = d.Whatsapp,
+                        email = d.Email,
+                        orden = d.Orden,
+                        activo = d.Activo
+                    })
+                    .ToList(),
                 puertos = db.PuertosAduanas
                     .OrderBy(p => p.Nombre)
                     .Select(p => new
@@ -606,18 +730,29 @@ public sealed class RepositorioDatosDAL
 
     public async Task<(bool Ok, string Mensaje)> ProbarConexionSupabaseAsync()
     {
+        if (Config.EsPublishableEnCampoSecreto)
+        {
+            return (false,
+                "⚠ En 'SERVICE_ROLE / SECRET KEY' pegaste una Publishable Key (sb_publishable_...). " +
+                "Las claves publishable son de solo lectura y NO permiten eliminar ni guardar en Supabase. " +
+                "Pegá tu Secret Key que comienza con 'sb_secret_' (Supabase -> Project Settings -> API Keys -> Secret keys).");
+        }
+
         if (!Config.EstaConfiguradoEnNube)
-            return (false, "Ingresá una Project URL válida (https://...) y la Service Role Key.");
+        {
+            return (false, "Ingresá la Project URL (https://...) y la Secret Key (sb_secret_...) para habilitar escritura en Supabase Cloud.");
+        }
 
         try
         {
-            using var req = CrearRequestSupabase(HttpMethod.Get, "/rest/v1/forwarders?select=id&limit=1");
+            // Consultar admin_usuarios (protegida por RLS sin política anon) valida genuinamente privilegios service_role / sb_secret_
+            using var req = CrearRequestSupabase(HttpMethod.Get, "/rest/v1/admin_usuarios?select=id&limit=1");
             using var res = await Http.SendAsync(req);
             if (res.IsSuccessStatusCode)
-                return (true, "Conexión exitosa con Supabase PostgreSQL (API REST autenticada con Service Role).");
+                return (true, "✔ Conexión autenticada con privilegios de Administrador (Secret Key / Service Role) en Supabase Cloud.");
 
             string err = await res.Content.ReadAsStringAsync();
-            return (false, $"Supabase respondió HTTP {(int)res.StatusCode}: {err}");
+            return (false, $"Supabase rechazó la clave con HTTP {(int)res.StatusCode}. Verificá que sea la Secret Key (sb_secret_...): {err}");
         }
         catch (Exception ex)
         {
@@ -629,7 +764,7 @@ public sealed class RepositorioDatosDAL
     {
         var req = new HttpRequestMessage(method, $"{Config.SupabaseUrl.TrimEnd('/')}{relativePath}");
         req.Headers.Add("apikey", Config.ServiceRoleKey);
-        if (!Config.ServiceRoleKey.StartsWith("sb_secret_", StringComparison.Ordinal))
+        if (Config.ServiceRoleKey.StartsWith("eyJ", StringComparison.Ordinal))
         {
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Config.ServiceRoleKey);
         }
@@ -713,26 +848,68 @@ public sealed class RepositorioDatosDAL
         }
     }
 
-    private async Task<BaseDatosCompletaBE?> IntentarLeerDesdeSupabaseAsync()
+    private sealed class ParametroSistemaRow
+    {
+        public string clave { get; set; } = string.Empty;
+        public string valor { get; set; } = string.Empty;
+        public string? descripcion { get; set; }
+    }
+
+    private sealed class AdminSeguridadRbacRow
+    {
+        public string clave { get; set; } = string.Empty;
+        public RolesStoreBE? payload { get; set; }
+    }
+
+    private async Task<BaseDatosCompletaBE?> IntentarLeerDesdeSupabaseAsync(RolesCompositeBLL? rolesBll = null)
     {
         try
         {
             var adminsTask = GetTablaSupabaseAsync<AdminUsuarioBE>("/rest/v1/admin_usuarios?select=*&order=username.asc");
             var fwdsTask = GetTablaSupabaseAsync<ForwarderBE>("/rest/v1/forwarders?select=*&order=orden.asc");
+            var despsTask = GetTablaSupabaseAsync<DespachanteBE>("/rest/v1/despachantes?select=*&order=orden.asc");
+            var paramDespTask = GetTablaSupabaseAsync<ParametroSistemaRow>($"/rest/v1/parametros_sistema?select=clave,valor,descripcion&clave=eq.{ClaveParametroDespachantes}&limit=1");
             var puertosTask = GetTablaSupabaseAsync<PuertoAduanaBE>("/rest/v1/puertos_aduanas?select=*&order=nombre.asc");
 
             var dvvConSnapTask = GetTablaSupabaseAsync<DigitoVerificadorBE>(
-                "/rest/v1/digito_verificador?select=*&tabla_nombre=in.(admin_usuarios,forwarders,puertos_aduanas)");
+                "/rest/v1/digito_verificador?select=*&tabla_nombre=in.(admin_usuarios,forwarders,despachantes,puertos_aduanas)");
             var dvvLivianoTask = GetTablaSupabaseAsync<DigitoVerificadorBE>(
                 "/rest/v1/digito_verificador?select=tabla_nombre,dvv,cantidad_registros,updated_at,updated_by&tabla_nombre=in.(paises,ncm_catalogo)");
 
             var countPaisesTask = ObtenerConteoExactoTablaSupabaseAsync("paises");
             var countNcmTask = ObtenerConteoExactoTablaSupabaseAsync("ncm_catalogo");
 
-            await Task.WhenAll(adminsTask, fwdsTask, puertosTask, dvvConSnapTask, dvvLivianoTask, countPaisesTask, countNcmTask);
+            Task<List<AdminSeguridadRbacRow>?>? rbacTask = rolesBll != null
+                ? GetTablaSupabaseAsync<AdminSeguridadRbacRow>("/rest/v1/admin_seguridad_rbac?select=clave,payload&clave=eq.ROLES_STORE_V2&limit=1")
+                : null;
+
+            await Task.WhenAll(adminsTask, fwdsTask, despsTask, paramDespTask, puertosTask, dvvConSnapTask, dvvLivianoTask, countPaisesTask, countNcmTask);
+            if (rbacTask != null)
+            {
+                var rbacRows = await rbacTask;
+                if (rbacRows != null && rbacRows.Count > 0 && rbacRows[0].payload != null)
+                {
+                    rolesBll!.ReemplazarStoreDesdeNube(rbacRows[0].payload!);
+                }
+            }
 
             if (adminsTask.Result == null || fwdsTask.Result == null)
                 return null;
+
+            List<DespachanteBE> despachantesFinales;
+            if (despsTask.Result != null)
+            {
+                despachantesFinales = despsTask.Result;
+            }
+            else if (paramDespTask.Result != null && paramDespTask.Result.Count > 0 && !string.IsNullOrWhiteSpace(paramDespTask.Result[0].descripcion))
+            {
+                despachantesFinales = JsonSerializer.Deserialize<List<DespachanteBE>>(paramDespTask.Result[0].descripcion!, JsonOpts)
+                    ?? CrearSemillaDespachantes();
+            }
+            else
+            {
+                despachantesFinales = CrearSemillaDespachantes();
+            }
 
             var dvvs = new List<DigitoVerificadorBE>();
             if (dvvConSnapTask.Result != null) dvvs.AddRange(dvvConSnapTask.Result);
@@ -742,6 +919,7 @@ public sealed class RepositorioDatosDAL
             {
                 AdminUsuarios = adminsTask.Result,
                 Forwarders = fwdsTask.Result,
+                Despachantes = despachantesFinales,
                 PuertosAduanas = puertosTask.Result ?? new(),
                 Paises = new(),
                 NcmCatalogo = new(),
@@ -756,37 +934,142 @@ public sealed class RepositorioDatosDAL
         }
     }
 
-    private async Task<(bool Ok, string Detalle)> SincronizarHaciaSupabaseAsync(BaseDatosCompletaBE db, bool limpiarFilasHuerfanas)
+    private async Task<(bool Ok, string Detalle)> SincronizarHaciaSupabaseAsync(
+        BaseDatosCompletaBE db,
+        bool limpiarFilasHuerfanas,
+        RolesCompositeBLL? rolesBll = null)
     {
         try
         {
+            // 1. Purgar en Supabase cualquier Forwarder, Puerto o Usuario eliminado localmente para que otras PCs / GitHub NUNCA vean registros borrados
+            await PurgarEliminadosEnTablaUuidAsync("forwarders", db.Forwarders.Select(f => f.Id));
+            await PurgarEliminadosEnTablaUuidAsync("puertos_aduanas", db.PuertosAduanas.Select(p => p.Id));
+            await PurgarEliminadosEnTablaUuidAsync("admin_usuarios", db.AdminUsuarios.Select(u => u.Id));
+
             if (limpiarFilasHuerfanas)
             {
-                await BorrarTodosSupabaseAsync("forwarders", "id=not.is.null");
-                await BorrarTodosSupabaseAsync("puertos_aduanas", "id=not.is.null");
-                await BorrarTodosSupabaseAsync("admin_usuarios", "id=not.is.null");
                 if (db.Paises.Count > 0) await BorrarTodosSupabaseAsync("paises", "codigo_iso=not.is.null");
                 if (db.NcmCatalogo.Count > 0) await BorrarTodosSupabaseAsync("ncm_catalogo", "codigo_ncm=not.is.null");
             }
 
-            await UpsertSupabaseAsync("admin_usuarios?on_conflict=username", db.AdminUsuarios);
+            // 2. Sincronizar admin_usuarios (con fallback automático si aún no se corrió ALTER TABLE en Supabase)
+            await UpsertAdminUsuariosCompatibleAsync(db.AdminUsuarios);
+
+            // 3. Sincronizar Forwarders y Puertos
             await UpsertSupabaseAsync("forwarders?on_conflict=id", db.Forwarders);
             await UpsertSupabaseAsync("puertos_aduanas?on_conflict=id", db.PuertosAduanas);
+
+            // 4. Sincronizar Despachantes de Aduana (en tabla public.despachantes si existe + espejo en parametros_sistema)
+            bool tablaDespachantesExiste = await IntentarSincronizarTablaDespachantesAsync(db.Despachantes);
+            await SincronizarEspejoDespachantesParametroAsync(db.Despachantes);
+
             if (db.Paises.Count > 0) await UpsertSupabaseAsync("paises?on_conflict=codigo_iso", db.Paises);
             if (db.NcmCatalogo.Count > 0) await UpsertSupabaseAsync("ncm_catalogo?on_conflict=codigo_ncm", db.NcmCatalogo);
+
+            if (rolesBll != null)
+            {
+                await IntentarSincronizarRbacStoreAsync(rolesBll.Store);
+            }
 
             var rpcRes = await RecalcularDigitosEnSupabaseRpcAsync("ADMIN_EXE");
             if (!rpcRes.Ok)
             {
-                await UpsertSupabaseAsync("digito_verificador?on_conflict=tabla_nombre", db.DigitosVerificadores);
+                var dvParaSubir = tablaDespachantesExiste
+                    ? db.DigitosVerificadores
+                    : db.DigitosVerificadores.Where(d => !string.Equals(d.TablaNombre, "despachantes", StringComparison.OrdinalIgnoreCase)).ToList();
+                await UpsertSupabaseAsync("digito_verificador?on_conflict=tabla_nombre", dvParaSubir);
             }
 
-            return (true, "Sincronizado correctamente con Supabase Cloud y espejo Web.");
+            return (true, "✔ Sincronizado en tiempo real con Supabase Cloud y espejo Web.");
         }
         catch (Exception ex)
         {
-            return (false, $"Guardado localmente, pero falló sincronización Supabase: {ex.Message}");
+            return (false, $"⚠ Guardado localmente, pero falló la sincronización con Supabase Cloud: {ex.Message}");
         }
+    }
+
+    private async Task UpsertAdminUsuariosCompatibleAsync(List<AdminUsuarioBE> usuarios)
+    {
+        if (usuarios.Count == 0) return;
+
+        try
+        {
+            await UpsertSupabaseAsync("admin_usuarios?on_conflict=username", usuarios);
+        }
+        catch
+        {
+            // Fallback si public.admin_usuarios aún no tiene las columnas extendidas (dni, nombre, apellido, bloqueado, perfil_id)
+            var core = usuarios.Select(u => new
+            {
+                id = u.Id,
+                username = u.Username,
+                password_hash = u.PasswordHash,
+                activo = u.Activo,
+                ultimo_acceso = u.UltimoAcceso,
+                password_updated_at = u.PasswordUpdatedAt,
+                dvh = u.Dvh
+            }).ToList();
+
+            await UpsertSupabaseAsync("admin_usuarios?on_conflict=username", core);
+        }
+    }
+
+    private async Task<bool> IntentarSincronizarTablaDespachantesAsync(List<DespachanteBE> despachantes)
+    {
+        try
+        {
+            await PurgarEliminadosEnTablaUuidAsync("despachantes", despachantes.Select(d => d.Id));
+            await UpsertSupabaseAsync("despachantes?on_conflict=id", despachantes);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private async Task SincronizarEspejoDespachantesParametroAsync(List<DespachanteBE> despachantes)
+    {
+        var dto = new List<object>
+        {
+            new
+            {
+                clave = ClaveParametroDespachantes,
+                valor = $"SYNC_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}",
+                descripcion = JsonSerializer.Serialize(despachantes, JsonOpts),
+                updated_at = DateTimeOffset.UtcNow
+            }
+        };
+        await UpsertSupabaseAsync("parametros_sistema?on_conflict=clave", dto);
+    }
+
+    public async Task IntentarSincronizarRbacStoreAsync(RolesStoreBE store)
+    {
+        if (!Config.EstaConfiguradoEnNube) return;
+        try
+        {
+            var payload = new List<object>
+            {
+                new
+                {
+                    clave = "ROLES_STORE_V2",
+                    payload = store,
+                    updated_at = DateTimeOffset.UtcNow
+                }
+            };
+            await UpsertSupabaseAsync("admin_seguridad_rbac?on_conflict=clave", payload);
+        }
+        catch { }
+    }
+
+    private async Task PurgarEliminadosEnTablaUuidAsync(string tabla, IEnumerable<Guid> idsVigentes)
+    {
+        var lista = idsVigentes.Distinct().ToList();
+        string filtro = lista.Count == 0
+            ? "id=not.is.null"
+            : $"id=not.in.({string.Join(",", lista.Select(g => g.ToString()))})";
+
+        await BorrarTodosSupabaseAsync(tabla, filtro);
     }
 
     public async Task EliminarRegistroSupabaseAsync(string tabla, string filtroQuery)
@@ -799,6 +1082,7 @@ public sealed class RepositorioDatosDAL
     {
         using var req = CrearRequestSupabase(HttpMethod.Delete, $"/rest/v1/{tabla}?{filtro}");
         using var res = await Http.SendAsync(req);
+        res.EnsureSuccessStatusCode();
     }
 
     private async Task UpsertSupabaseAsync<T>(string tablaConConflict, List<T> items)
@@ -817,10 +1101,16 @@ public sealed class RepositorioDatosDAL
         }
     }
 
-    public async Task<string> ProcesarYSubirImagenForwarderAsync(string rutaImagenOrigen, Guid forwarderId)
+    public Task<string> ProcesarYSubirImagenForwarderAsync(string rutaImagenOrigen, Guid forwarderId) =>
+        ProcesarYSubirImagenOperadorAsync(rutaImagenOrigen, forwarderId, "fwd");
+
+    public Task<string> ProcesarYSubirImagenDespachanteAsync(string rutaImagenOrigen, Guid despachanteId) =>
+        ProcesarYSubirImagenOperadorAsync(rutaImagenOrigen, despachanteId, "desp");
+
+    private async Task<string> ProcesarYSubirImagenOperadorAsync(string rutaImagenOrigen, Guid operadorId, string prefijo)
     {
         byte[] jpegOptimizado = OptimizarImagenCuadradaJpeg(rutaImagenOrigen, 480, 82L);
-        string nombreArchivo = $"fwd_{forwarderId:N}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}.jpg";
+        string nombreArchivo = $"{prefijo}_{operadorId:N}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}.jpg";
 
         if (Config.EstaConfiguradoEnNube)
         {

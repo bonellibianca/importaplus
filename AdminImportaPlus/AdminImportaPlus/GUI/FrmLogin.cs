@@ -46,7 +46,7 @@ public partial class FrmLogin : Form
 
                 if (frmAlerta.AccionElegida == AccionAlertaDV.IrARestoreBackup)
                 {
-                    seccionInicial = 4;
+                    seccionInicial = FrmPanelAdmin.SeccionRestoreSupabase;
                 }
             }
 

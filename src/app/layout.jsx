@@ -1,7 +1,10 @@
 import './globals.css';
 
+const defaultOrigin = process.env.NEXT_PUBLIC_APP_ORIGIN
+  || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : 'https://importaplus.com.ar');
+
 export const metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_ORIGIN || 'https://importaplus.com.ar'),
+  metadataBase: new URL(defaultOrigin),
   title: 'IMPORTA +',
   description: 'Calculá el costo total nacionalizado de tu mercadería con aranceles NCM, tributos aduaneros actualizados (Decreto 99/2019, RG 2281), puertos habilitados y forwarders matriculados.',
   keywords: 'calculadora de importacion, costos de importacion argentina, simulador aduanero, aranceles ncm, derechos de importacion die, despachante de aduana, tasa de estadistica aduana, flete internacional argentina, arca dga',

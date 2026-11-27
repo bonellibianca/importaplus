@@ -2,29 +2,46 @@ import 'server-only';
 
 /**
  * Cliente Ligero Supabase PostgREST + RPC con Caché L1 en Memoria (Protección Cuota FREE)
- * - Cero dependencias pesadas externas (usa fetch nativo de Node 18+/20+ con Keep-Alive).
- * - Protege los límites de Supabase Free (500 MB DB, 5 GB Egress, Nano CPU) absorbiendo
- *   lecturas repetidas mediante caché TTL + LRU en servidor antes de tocar PostgreSQL.
+ * - Incluye configuración pública oficial de solo lectura (RLS) por defecto para que cualquier
+ *   desarrollador que clone el repositorio desde GitHub lea en tiempo real los cambios de Supabase
+ *   sin depender de archivos locales desconectados.
  */
+
+export const DEFAULT_PUBLIC_SUPABASE_URL = 'https://exqyupuliqxsxejgouho.supabase.co';
+export const DEFAULT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_HPs_CdVHnpT1PqyRUwfz9Q_g5rBulj_';
 
 const memoryCache = new Map();
 const MAX_CACHE_ENTRIES = 400;
 
-function getSupabaseEnv() {
-  const url = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
-  const anonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim();
-  const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
-
-  const isPlaceholder = (val) =>
+function isPlaceholder(val) {
+  return (
     !val ||
     val.includes('TU_PROJECT_REF') ||
     val.endsWith('...') ||
     val === 'tu-anon-key' ||
-    val === 'tu-service-role-key';
+    val === 'tu-service-role-key'
+  );
+}
+
+function getSupabaseEnv() {
+  const rawUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
+  const rawAnon = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim();
+  const rawService = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+
+  const url = (!isPlaceholder(rawUrl) && rawUrl.startsWith('https://'))
+    ? rawUrl
+    : DEFAULT_PUBLIC_SUPABASE_URL;
+
+  const anonKey = !isPlaceholder(rawAnon)
+    ? rawAnon
+    : DEFAULT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+  // Una clave sb_publishable_ NO es clave secreta de escritura (service_role)
+  const validService = !isPlaceholder(rawService) && !rawService.startsWith('sb_publishable_');
+  const serviceKey = validService ? rawService : '';
 
   const validUrl = url.startsWith('https://') && !isPlaceholder(url);
   const validAnon = !isPlaceholder(anonKey);
-  const validService = !isPlaceholder(serviceKey);
 
   return {
     url,
@@ -74,14 +91,16 @@ function buildSupabaseHeaders(token, extra = {}) {
     apikey: token,
     ...extra
   };
-  if (token && !token.startsWith('sb_secret_')) {
+  // Solo adjuntar Authorization Bearer cuando el token es un JWT (eyJ...);
+  // las nuevas API keys opacas de Supabase (sb_publishable_ / sb_secret_) usan apikey directamente.
+  if (token && token.startsWith('eyJ')) {
     headers.Authorization = `Bearer ${token}`;
   }
   return headers;
 }
 
 /**
- * Consulta SELECT sobre PostgREST usando anonKey (respeta RLS) o serviceKey si se solicita.
+ * Consulta SELECT sobre PostgREST usando anonKey/publishableKey (respeta RLS) o serviceKey si se solicita.
  */
 export async function supabaseSelect(table, queryString = 'select=*', { useServiceRole = false, timeoutMs = 4500 } = {}) {
   const env = getSupabaseEnv();
@@ -114,7 +133,7 @@ export async function supabaseSelect(table, queryString = 'select=*', { useServi
 }
 
 /**
- * Inserción protegida usando exclusivamente service_role (Backend-Only, nunca expuesta al navegador).
+ * Inserción protegida usando exclusivamente service_role / secret key (Backend-Only).
  */
 export async function supabaseInsert(table, payload, { timeoutMs = 5000 } = {}) {
   const env = getSupabaseEnv();

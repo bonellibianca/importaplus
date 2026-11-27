@@ -25,6 +25,12 @@
     <Compile Update="GUI\FrmRestablecerPassword.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Update="GUI\FrmCrearPermisoModal.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="GUI\FrmSeleccionarFamiliaModal.cs">
+      <SubType>Form</SubType>
+    </Compile>
   </ItemGroup>
 
 </Project>

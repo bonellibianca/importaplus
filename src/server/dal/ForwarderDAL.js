@@ -1,7 +1,7 @@
 import 'server-only';
 import fs from 'fs';
 import path from 'path';
-import { getCachedOrFetch, supabaseSelect, isSupabaseConfigured } from './supabaseClient';
+import { supabaseSelect, isSupabaseConfigured } from './supabaseClient';
 
 export const FALLBACK_FORWARDERS_4 = [
   {
@@ -74,20 +74,22 @@ function normalizarForwarder(f, idx) {
 }
 
 /**
- * Capa DAL: Forwarders unificada (Supabase Cloud -> Espejo Local web_sync.json -> Semilla Oficial).
+ * Capa DAL: Forwarders en tiempo real desde Supabase Cloud (sin caché obsoleto ni resurrección de eliminados).
  */
 export class ForwarderDAL {
   static async obtenerConOrigen() {
     if (isSupabaseConfigured()) {
-      const rows = await getCachedOrFetch('forwarders:grid_all', 5 * 60 * 1000, async () => {
-        return await supabaseSelect(
-          'forwarders',
-          'select=id,nombre,imagen_url,whatsapp,email,orden,activo&activo=eq.true&order=orden.asc'
-        );
-      });
+      const rows = await supabaseSelect(
+        'forwarders',
+        'select=id,nombre,imagen_url,whatsapp,email,orden,activo&activo=eq.true&order=orden.asc'
+      );
 
-      if (Array.isArray(rows) && rows.length > 0) {
-        return { forwarders: rows.map(normalizarForwarder), source: 'supabase_cached' };
+      // Si Supabase respondió con un array (incluso vacío si se eliminaron todos), respetar exactamente la nube
+      if (Array.isArray(rows)) {
+        return {
+          forwarders: rows.filter((f) => f && f.activo !== false).map(normalizarForwarder),
+          source: 'supabase_live'
+        };
       }
     }
 
@@ -95,14 +97,12 @@ export class ForwarderDAL {
     if (fs.existsSync(syncPath)) {
       try {
         const raw = JSON.parse(fs.readFileSync(syncPath, 'utf8').replace(/^\uFEFF/, ''));
-        if (Array.isArray(raw.forwarders) && raw.forwarders.length > 0) {
+        if (Array.isArray(raw.forwarders)) {
           const activos = raw.forwarders
             .filter((f) => f && f.activo !== false)
             .sort((a, b) => (Number(a.orden) || 1) - (Number(b.orden) || 1))
             .map(normalizarForwarder);
-          if (activos.length > 0) {
-            return { forwarders: activos, source: 'local_admin_sync' };
-          }
+          return { forwarders: activos, source: 'local_admin_sync' };
         }
       } catch (err) {
         console.warn('[ForwarderDAL_SYNC_WARN]:', err.message);

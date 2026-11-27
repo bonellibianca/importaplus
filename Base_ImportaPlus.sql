@@ -84,6 +84,25 @@ CREATE TABLE IF NOT EXISTS public.forwarders (
 CREATE INDEX IF NOT EXISTS idx_forwarders_activos_orden
 ON public.forwarders (activo, orden ASC);
 
+CREATE TABLE IF NOT EXISTS public.despachantes (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    nombre VARCHAR(120) NOT NULL CHECK (char_length(trim(nombre)) BETWEEN 1 AND 120),
+    imagen_url TEXT NOT NULL CHECK (
+        char_length(trim(imagen_url)) BETWEEN 1 AND 160000
+        AND imagen_url ~* '^(https://|/(?!/)|data:image/(jpeg|jpg|png|webp);base64,)'
+    ),
+    whatsapp VARCHAR(40) NOT NULL CHECK (char_length(trim(whatsapp)) BETWEEN 6 AND 40),
+    email VARCHAR(150) NOT NULL CHECK (email ~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$'),
+    orden INT NOT NULL DEFAULT 1 CHECK (orden BETWEEN 1 AND 999),
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    dvh VARCHAR(64) NOT NULL DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_despachantes_activos_orden
+ON public.despachantes (activo, orden ASC);
+
 CREATE TABLE IF NOT EXISTS public.operadores_logisticos (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     razon_social VARCHAR(150) NOT NULL,
@@ -144,6 +163,18 @@ CREATE TABLE IF NOT EXISTS public.admin_usuarios (
     dvh VARCHAR(64) NOT NULL DEFAULT ''
 );
 
+ALTER TABLE public.admin_usuarios ADD COLUMN IF NOT EXISTS dni INT;
+ALTER TABLE public.admin_usuarios ADD COLUMN IF NOT EXISTS nombre VARCHAR(80);
+ALTER TABLE public.admin_usuarios ADD COLUMN IF NOT EXISTS apellido VARCHAR(80);
+ALTER TABLE public.admin_usuarios ADD COLUMN IF NOT EXISTS bloqueado BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE public.admin_usuarios ADD COLUMN IF NOT EXISTS perfil_id UUID;
+
+CREATE TABLE IF NOT EXISTS public.admin_seguridad_rbac (
+    clave VARCHAR(80) PRIMARY KEY,
+    payload JSONB NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS public.digito_verificador (
     tabla_nombre VARCHAR(80) PRIMARY KEY,
     dvv VARCHAR(64) NOT NULL,
@@ -164,10 +195,12 @@ ALTER TABLE public.ncm_catalogo ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.paises ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.puertos_aduanas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.forwarders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.despachantes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.operadores_logisticos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.simulaciones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.solicitudes_contacto ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.admin_usuarios ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.admin_seguridad_rbac ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.digito_verificador ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.parametros_sistema ENABLE ROW LEVEL SECURITY;
 
@@ -190,6 +223,9 @@ ON public.puertos_aduanas TO anon, authenticated;
 GRANT SELECT (id, nombre, imagen_url, whatsapp, email, orden, activo)
 ON public.forwarders TO anon, authenticated;
 
+GRANT SELECT (id, nombre, imagen_url, whatsapp, email, orden, activo)
+ON public.despachantes TO anon, authenticated;
+
 GRANT SELECT (clave, valor, descripcion)
 ON public.parametros_sistema TO anon, authenticated;
 
@@ -204,6 +240,9 @@ CREATE POLICY "Lectura pública Puertos" ON public.puertos_aduanas FOR SELECT TO
 
 DROP POLICY IF EXISTS "Lectura pública Forwarders Activos" ON public.forwarders;
 CREATE POLICY "Lectura pública Forwarders Activos" ON public.forwarders FOR SELECT TO anon, authenticated USING (activo = true);
+
+DROP POLICY IF EXISTS "Lectura pública Despachantes Activos" ON public.despachantes;
+CREATE POLICY "Lectura pública Despachantes Activos" ON public.despachantes FOR SELECT TO anon, authenticated USING (activo = true);
 
 DROP POLICY IF EXISTS "Lectura pública Parámetros" ON public.parametros_sistema;
 CREATE POLICY "Lectura pública Parámetros" ON public.parametros_sistema FOR SELECT TO anon, authenticated USING (true);
@@ -540,6 +579,20 @@ SET nombre = EXCLUDED.nombre,
     activo = EXCLUDED.activo,
     updated_at = NOW();
 
+INSERT INTO public.despachantes (id, nombre, imagen_url, whatsapp, email, orden, activo) VALUES
+('e1111111-1111-1111-1111-111111111111', 'Bonelli & Asociados Despachantes DGA', 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=600&q=80', '+5491143218800', 'despachos@importaplus.com.ar', 1, TRUE),
+('e2222222-2222-2222-2222-222222222222', 'Ezeiza Express Despachos Aduaneros', 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=600&q=80', '+5491144802233', 'ezeiza@importaplus.com.ar', 2, TRUE),
+('e3333333-3333-3333-3333-333333333333', 'Estudio Aduanero Río de la Plata', 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=600&q=80', '+5491150903344', 'aduanas@importaplus.com.ar', 3, TRUE),
+('e4444444-4444-4444-4444-444444444444', 'Andes & Pacífico Despachantes Matriculados', 'https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=600&q=80', '+5492614205544', 'cuyo@importaplus.com.ar', 4, TRUE)
+ON CONFLICT (id) DO UPDATE
+SET nombre = EXCLUDED.nombre,
+    imagen_url = EXCLUDED.imagen_url,
+    whatsapp = EXCLUDED.whatsapp,
+    email = EXCLUDED.email,
+    orden = EXCLUDED.orden,
+    activo = EXCLUDED.activo,
+    updated_at = NOW();
+
 INSERT INTO public.ncm_catalogo (codigo_ncm, descripcion, tipo_bien, aec, iva_alicuota, anexo_excepcion, arancel_excepcion, condicion_excepcion) VALUES
 ('8471.30.12', 'Máquinas automáticas para tratamiento o procesamiento de datos, digitales, portátiles, de peso inferior o igual a 350 g, con teclado y pantalla (Notebooks / Netbooks / Laptops)', 'BIT', 16.00, 10.50, 'Anexo II Dec 557/2023', 2.00, 'Sujeto a verificación técnica de homologación'),
 ('8471.30.19', 'Las demás máquinas automáticas para tratamiento o procesamiento de datos, portátiles (Tablets y computadoras táctiles)', 'BIT', 16.00, 10.50, NULL, NULL, NULL),
@@ -613,6 +666,12 @@ BEGIN
     )
     WHERE TRUE;
 
+    UPDATE public.despachantes
+    SET dvh = public.fn_sha256_hex(
+        lower(id::text) || '|' || trim(nombre) || '|' || trim(imagen_url) || '|' || trim(whatsapp) || '|' || trim(email) || '|' || orden::text || '|' || (CASE WHEN activo THEN '1' ELSE '0' END)
+    )
+    WHERE TRUE;
+
     UPDATE public.puertos_aduanas
     SET dvh = public.fn_sha256_hex(
         lower(id::text) || '|' || trim(nombre) || '|' || trim(via_ingreso) || '|' || trim(provincia) || '|' || trim(coalesce(codigo_sim, '')) || '|' || trim(coalesce(operador, ''))
@@ -675,6 +734,33 @@ BEGIN
         NOW(),
         p_usuario
     FROM public.forwarders
+    ON CONFLICT (tabla_nombre) DO UPDATE
+    SET dvv = EXCLUDED.dvv,
+        cantidad_registros = EXCLUDED.cantidad_registros,
+        snapshot_control = EXCLUDED.snapshot_control,
+        updated_at = NOW(),
+        updated_by = EXCLUDED.updated_by;
+
+    INSERT INTO public.digito_verificador (tabla_nombre, dvv, cantidad_registros, snapshot_control, updated_at, updated_by)
+    SELECT
+        'despachantes',
+        public.fn_sha256_hex(coalesce(string_agg(dvh, '|' ORDER BY dvh COLLATE "C" ASC), 'EMPTY')),
+        count(*)::INT,
+        coalesce(jsonb_agg(jsonb_build_object(
+            'pk', lower(id::text),
+            'dvh', dvh,
+            'campos', jsonb_build_object(
+                'nombre', nombre,
+                'imagen_url', imagen_url,
+                'whatsapp', whatsapp,
+                'email', email,
+                'orden', orden,
+                'activo', activo
+            )
+        ) ORDER BY orden), '[]'::jsonb),
+        NOW(),
+        p_usuario
+    FROM public.despachantes
     ON CONFLICT (tabla_nombre) DO UPDATE
     SET dvv = EXCLUDED.dvv,
         cantidad_registros = EXCLUDED.cantidad_registros,

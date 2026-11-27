@@ -1,117 +1,290 @@
 ﻿{
+  "SchemaVersion": 2,
   "Permisos": [
     {
-      "Id": "10000001-0000-0000-0000-000000000001",
-      "Codigo": "FWD_VER",
-      "Nombre": "Ver Forwarders"
+      "Id": "10000002-0000-0000-0000-000000000001",
+      "Codigo": "btnNavForwarders",
+      "Nombre": "Menú · Forwarders",
+      "NombreFormulario": "FrmPanelAdmin"
     },
     {
-      "Id": "10000001-0000-0000-0000-000000000002",
-      "Codigo": "FWD_ALTA",
-      "Nombre": "Alta de Forwarders"
+      "Id": "10000002-0000-0000-0000-000000000002",
+      "Codigo": "btnNavDespachantes",
+      "Nombre": "Menú · Despachantes de Aduana",
+      "NombreFormulario": "FrmPanelAdmin"
     },
     {
-      "Id": "10000001-0000-0000-0000-000000000003",
-      "Codigo": "FWD_MODIFICAR",
-      "Nombre": "Modificar Forwarders"
+      "Id": "10000002-0000-0000-0000-000000000003",
+      "Codigo": "btnNavPuertos",
+      "Nombre": "Menú · Puertos y Aduanas",
+      "NombreFormulario": "FrmPanelAdmin"
     },
     {
-      "Id": "10000001-0000-0000-0000-000000000004",
-      "Codigo": "FWD_BAJA",
-      "Nombre": "Eliminar Forwarders"
+      "Id": "10000002-0000-0000-0000-000000000004",
+      "Codigo": "btnNavUsuarios",
+      "Nombre": "Menú · Gestión de Usuarios",
+      "NombreFormulario": "FrmPanelAdmin"
     },
     {
-      "Id": "10000001-0000-0000-0000-000000000005",
-      "Codigo": "PTO_ABM",
-      "Nombre": "ABM Puertos y Aduanas"
+      "Id": "10000002-0000-0000-0000-000000000005",
+      "Codigo": "btnNavRoles",
+      "Nombre": "Menú · Gestión de Perfiles",
+      "NombreFormulario": "FrmPanelAdmin"
     },
     {
-      "Id": "10000001-0000-0000-0000-000000000006",
-      "Codigo": "DV_VER",
-      "Nombre": "Auditar Dígito Verificador"
+      "Id": "10000002-0000-0000-0000-000000000006",
+      "Codigo": "btnNavDigitoVerificador",
+      "Nombre": "Menú · Dígito Verificador",
+      "NombreFormulario": "FrmPanelAdmin"
     },
     {
-      "Id": "10000001-0000-0000-0000-000000000007",
-      "Codigo": "DV_RECALCULAR",
-      "Nombre": "Recalcular Dígito Verificador"
+      "Id": "10000002-0000-0000-0000-000000000007",
+      "Codigo": "btnNavRestoreSupabase",
+      "Nombre": "Menú · RestoreBackup y Nube",
+      "NombreFormulario": "FrmPanelAdmin"
     },
     {
-      "Id": "10000001-0000-0000-0000-000000000008",
-      "Codigo": "BACKUP_CREAR",
-      "Nombre": "Generar Backup"
+      "Id": "10000002-0000-0000-0000-000000000008",
+      "Codigo": "btnCambiarPassword",
+      "Nombre": "Menú · Cambiar Contraseña",
+      "NombreFormulario": "FrmPanelAdmin"
     },
     {
-      "Id": "10000001-0000-0000-0000-000000000009",
-      "Codigo": "BACKUP_RESTAURAR",
-      "Nombre": "Ejecutar RestoreBackup"
+      "Id": "10000002-0000-0000-0000-000000000009",
+      "Codigo": "btnGuardarFwd",
+      "Nombre": "Forwarders · Guardar Forwarder",
+      "NombreFormulario": "FrmPanelAdmin"
     },
     {
-      "Id": "10000001-0000-0000-0000-000000000010",
-      "Codigo": "SUPA_CONFIG",
-      "Nombre": "Configurar Supabase Cloud"
+      "Id": "10000002-0000-0000-0000-000000000010",
+      "Codigo": "btnNuevoFwd",
+      "Nombre": "Forwarders · Nuevo / Limpiar",
+      "NombreFormulario": "FrmPanelAdmin"
     },
     {
-      "Id": "10000001-0000-0000-0000-000000000011",
-      "Codigo": "ROLES_GESTION",
-      "Nombre": "Gestionar Roles y Perfiles"
+      "Id": "10000002-0000-0000-0000-000000000011",
+      "Codigo": "btnEliminarFwd",
+      "Nombre": "Forwarders · Eliminar",
+      "NombreFormulario": "FrmPanelAdmin"
+    },
+    {
+      "Id": "10000002-0000-0000-0000-000000000012",
+      "Codigo": "btnSubirFoto",
+      "Nombre": "Forwarders · Seleccionar Imagen",
+      "NombreFormulario": "FrmPanelAdmin"
+    },
+    {
+      "Id": "10000002-0000-0000-0000-000000000013",
+      "Codigo": "btnGuardarDesp",
+      "Nombre": "Despachantes · Guardar Despachante",
+      "NombreFormulario": "FrmPanelAdmin"
+    },
+    {
+      "Id": "10000002-0000-0000-0000-000000000014",
+      "Codigo": "btnNuevoDesp",
+      "Nombre": "Despachantes · Nuevo / Limpiar",
+      "NombreFormulario": "FrmPanelAdmin"
+    },
+    {
+      "Id": "10000002-0000-0000-0000-000000000015",
+      "Codigo": "btnEliminarDesp",
+      "Nombre": "Despachantes · Eliminar",
+      "NombreFormulario": "FrmPanelAdmin"
+    },
+    {
+      "Id": "10000002-0000-0000-0000-000000000016",
+      "Codigo": "btnSubirFotoDesp",
+      "Nombre": "Despachantes · Seleccionar Imagen",
+      "NombreFormulario": "FrmPanelAdmin"
+    },
+    {
+      "Id": "10000002-0000-0000-0000-000000000017",
+      "Codigo": "btnGuardarPto",
+      "Nombre": "Puertos · Guardar Puerto / Aduana",
+      "NombreFormulario": "FrmPanelAdmin"
+    },
+    {
+      "Id": "10000002-0000-0000-0000-000000000018",
+      "Codigo": "btnNuevoPto",
+      "Nombre": "Puertos · Nuevo Puerto",
+      "NombreFormulario": "FrmPanelAdmin"
+    },
+    {
+      "Id": "10000002-0000-0000-0000-000000000019",
+      "Codigo": "btnBorrarPto",
+      "Nombre": "Puertos · Eliminar",
+      "NombreFormulario": "FrmPanelAdmin"
+    },
+    {
+      "Id": "10000002-0000-0000-0000-000000000020",
+      "Codigo": "btnCrearUsuario",
+      "Nombre": "Usuarios · Crear",
+      "NombreFormulario": "FrmPanelAdmin"
+    },
+    {
+      "Id": "10000002-0000-0000-0000-000000000021",
+      "Codigo": "btnModificarUsuario",
+      "Nombre": "Usuarios · Modificar",
+      "NombreFormulario": "FrmPanelAdmin"
+    },
+    {
+      "Id": "10000002-0000-0000-0000-000000000022",
+      "Codigo": "btnDesbloquearUsuario",
+      "Nombre": "Usuarios · Desbloquear",
+      "NombreFormulario": "FrmPanelAdmin"
+    },
+    {
+      "Id": "10000002-0000-0000-0000-000000000023",
+      "Codigo": "btnActDesactUsuario",
+      "Nombre": "Usuarios · Act/Desact",
+      "NombreFormulario": "FrmPanelAdmin"
+    },
+    {
+      "Id": "10000002-0000-0000-0000-000000000024",
+      "Codigo": "btnResetPassUsuario",
+      "Nombre": "Usuarios · Cambiar Clave",
+      "NombreFormulario": "FrmPanelAdmin"
+    },
+    {
+      "Id": "10000002-0000-0000-0000-000000000025",
+      "Codigo": "btnVerificarDv",
+      "Nombre": "Dígito Verificador · Verificar Integridad",
+      "NombreFormulario": "FrmPanelAdmin"
+    },
+    {
+      "Id": "10000002-0000-0000-0000-000000000026",
+      "Codigo": "btnRecalcularDv",
+      "Nombre": "Dígito Verificador · Recalcular DV",
+      "NombreFormulario": "FrmPanelAdmin"
+    },
+    {
+      "Id": "10000002-0000-0000-0000-000000000027",
+      "Codigo": "btnCrearBackup",
+      "Nombre": "RestoreBackup · Generar Backup",
+      "NombreFormulario": "FrmPanelAdmin"
+    },
+    {
+      "Id": "10000002-0000-0000-0000-000000000028",
+      "Codigo": "btnEjecutarRestore",
+      "Nombre": "RestoreBackup · Cargar Base Actual",
+      "NombreFormulario": "FrmPanelAdmin"
+    },
+    {
+      "Id": "10000002-0000-0000-0000-000000000029",
+      "Codigo": "btnGuardarSupa",
+      "Nombre": "Supabase · Guardar y Probar Conexión",
+      "NombreFormulario": "FrmPanelAdmin"
+    },
+    {
+      "Id": "10000002-0000-0000-0000-000000000030",
+      "Codigo": "btnEmpujarNube",
+      "Nombre": "Supabase · Sincronizar Datos",
+      "NombreFormulario": "FrmPanelAdmin"
     }
   ],
   "Familias": [
     {
-      "Id": "20000001-0000-0000-0000-000000000001",
-      "Codigo": "FAM_FORWARDERS",
-      "Nombre": "Gestión de Forwarders",
+      "Id": "20000002-0000-0000-0000-000000000001",
+      "Codigo": "FAM_BOTONES_FORWARDERS",
+      "Nombre": "Botones Forwarders",
       "HijosIds": [
-        "10000001-0000-0000-0000-000000000001",
-        "10000001-0000-0000-0000-000000000002",
-        "10000001-0000-0000-0000-000000000003",
-        "10000001-0000-0000-0000-000000000004"
+        "10000002-0000-0000-0000-000000000001",
+        "10000002-0000-0000-0000-000000000009",
+        "10000002-0000-0000-0000-000000000010",
+        "10000002-0000-0000-0000-000000000011",
+        "10000002-0000-0000-0000-000000000012"
       ]
     },
     {
-      "Id": "20000001-0000-0000-0000-000000000002",
-      "Codigo": "FAM_SEGURIDAD",
-      "Nombre": "Seguridad e Integridad DV",
+      "Id": "20000002-0000-0000-0000-000000000002",
+      "Codigo": "FAM_BOTONES_DESPACHANTES",
+      "Nombre": "Botones Despachantes de Aduana",
       "HijosIds": [
-        "10000001-0000-0000-0000-000000000006",
-        "10000001-0000-0000-0000-000000000007",
-        "10000001-0000-0000-0000-000000000011"
+        "10000002-0000-0000-0000-000000000002",
+        "10000002-0000-0000-0000-000000000013",
+        "10000002-0000-0000-0000-000000000014",
+        "10000002-0000-0000-0000-000000000015",
+        "10000002-0000-0000-0000-000000000016"
       ]
     },
     {
-      "Id": "20000001-0000-0000-0000-000000000003",
-      "Codigo": "FAM_BACKUP_NUBE",
-      "Nombre": "Backup y Conectividad Nube",
+      "Id": "20000002-0000-0000-0000-000000000003",
+      "Codigo": "FAM_BOTONES_PUERTOS",
+      "Nombre": "Botones Puertos y Aduanas",
       "HijosIds": [
-        "10000001-0000-0000-0000-000000000008",
-        "10000001-0000-0000-0000-000000000009",
-        "10000001-0000-0000-0000-000000000010"
+        "10000002-0000-0000-0000-000000000003",
+        "10000002-0000-0000-0000-000000000017",
+        "10000002-0000-0000-0000-000000000018",
+        "10000002-0000-0000-0000-000000000019"
+      ]
+    },
+    {
+      "Id": "20000002-0000-0000-0000-000000000004",
+      "Codigo": "FAM_BOTONES_USUARIOS_PERFILES",
+      "Nombre": "Botones Usuarios y Perfiles",
+      "HijosIds": [
+        "10000002-0000-0000-0000-000000000004",
+        "10000002-0000-0000-0000-000000000005",
+        "10000002-0000-0000-0000-000000000020",
+        "10000002-0000-0000-0000-000000000021",
+        "10000002-0000-0000-0000-000000000022",
+        "10000002-0000-0000-0000-000000000023",
+        "10000002-0000-0000-0000-000000000024",
+        "10000002-0000-0000-0000-000000000008"
+      ]
+    },
+    {
+      "Id": "20000002-0000-0000-0000-000000000005",
+      "Codigo": "FAM_BOTONES_DV_BACKUP_NUBE",
+      "Nombre": "Botones DV, Backup y Nube",
+      "HijosIds": [
+        "10000002-0000-0000-0000-000000000006",
+        "10000002-0000-0000-0000-000000000025",
+        "10000002-0000-0000-0000-000000000026",
+        "10000002-0000-0000-0000-000000000007",
+        "10000002-0000-0000-0000-000000000027",
+        "10000002-0000-0000-0000-000000000028",
+        "10000002-0000-0000-0000-000000000029",
+        "10000002-0000-0000-0000-000000000030"
       ]
     }
   ],
   "Perfiles": [
     {
-      "Id": "30000001-0000-0000-0000-000000000001",
-      "Nombre": "Administrador Total",
-      "Descripcion": "Acceso integral a Forwarders, Puertos, Roles, DVH/DVV y RestoreBackup.",
+      "Id": "30000002-0000-0000-0000-000000000001",
+      "Nombre": "Administrador",
+      "Descripcion": "Acceso total a todos los botones del sistema.",
       "ComponentesAsignadosIds": [
-        "20000001-0000-0000-0000-000000000001",
-        "10000001-0000-0000-0000-000000000005",
-        "20000001-0000-0000-0000-000000000002",
-        "20000001-0000-0000-0000-000000000003"
+        "20000002-0000-0000-0000-000000000001",
+        "20000002-0000-0000-0000-000000000002",
+        "20000002-0000-0000-0000-000000000003",
+        "20000002-0000-0000-0000-000000000004",
+        "20000002-0000-0000-0000-000000000005"
       ]
     },
     {
-      "Id": "30000001-0000-0000-0000-000000000002",
+      "Id": "30000002-0000-0000-0000-000000000002",
       "Nombre": "Operador Logístico",
-      "Descripcion": "Gestiona Forwarders y Puertos sin acceso a seguridad ni restore.",
+      "Descripcion": "Acceso únicamente a los botones de Forwarders, Despachantes, Puertos y Cambiar Contraseña.",
       "ComponentesAsignadosIds": [
-        "20000001-0000-0000-0000-000000000001",
-        "10000001-0000-0000-0000-000000000005"
+        "20000002-0000-0000-0000-000000000001",
+        "20000002-0000-0000-0000-000000000002",
+        "20000002-0000-0000-0000-000000000003",
+        "10000002-0000-0000-0000-000000000008"
       ]
     }
   ],
   "PerfilPorUsuario": {
-    "Admin": "30000001-0000-0000-0000-000000000001"
-  }
+    "Admin": "30000002-0000-0000-0000-000000000001"
+  },
+  "FichasUsuarios": [
+    {
+      "Username": "Admin",
+      "Dni": 11111111,
+      "Nombre": "Administrador",
+      "Apellido": "General",
+      "Bloqueado": false,
+      "PerfilId": "30000002-0000-0000-0000-000000000001"
+    }
+  ]
 }

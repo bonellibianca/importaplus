@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   const ip = getClientIp(request);
-  const rateStatus = checkRateLimit(ip, 'forwarders_dir', 30, 60 * 1000);
+  const rateStatus = checkRateLimit(ip, 'forwarders_dir', 60, 60 * 1000);
   if (!rateStatus.allowed) {
     return NextResponse.json(
       { error: `Límite de consultas excedido. Reintente en ${rateStatus.resetInSeconds}s.` },
@@ -17,15 +17,11 @@ export async function GET(request) {
 
   try {
     const { forwarders, source } = await ForwarderDAL.obtenerConOrigen();
-    const cacheHeader = source === 'local_admin_sync'
-      ? 'no-store'
-      : 'public, s-maxage=300, stale-while-revalidate=3600';
-
     return NextResponse.json(
       { forwarders, source },
       {
         status: 200,
-        headers: { 'Cache-Control': cacheHeader }
+        headers: { 'Cache-Control': 'no-store' }
       }
     );
   } catch (error) {

@@ -1,16 +1,16 @@
 /**
  * Capa DAL (Data Access Layer) - Cliente Web SPA (index.html)
- * Conector Optimizado para Supabase FREE Tier + Espejo Local Admin (.NET 9)
+ * Conector Directo en Tiempo Real a Supabase Cloud + Respaldo Local Offline (.NET 9)
  *
- * Estrategia de protección de cuota FREE:
- * 1. Caché local en sessionStorage/localStorage (TTL 5 minutos) para no repetir lecturas al recargar.
- * 2. Lectura de solo 4 registros activos de public.forwarders con columnas proyectadas.
- * 3. Sincronización automática con window.__IMPORTA_ADMIN_SYNC__ (generado por el .exe en .NET 9)
- *    para funcionamiento instantáneo incluso en modo file:/// o sin internet.
+ * Corrección clave:
+ * 1. Siempre prioriza la API / Supabase Cloud en vivo para que cualquier cambio (baja/alta/modificación)
+ *    realizado en AdminImportaPlus se refleje instantáneamente en cualquier PC o clon de GitHub.
+ * 2. Respeta listas vacías [] si el administrador eliminó todos los registros activos, sin resucitar datos semilla.
+ * 3. Usa window.__IMPORTA_ADMIN_SYNC__ únicamente como respaldo offline cuando no hay conexión a internet.
  */
 class SupabaseClientDAL {
-  static CACHE_KEY = 'IMPORTA_PLUS_FORWARDERS_CACHE_V1';
-  static CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
+  static DEFAULT_SUPABASE_URL = 'https://exqyupuliqxsxejgouho.supabase.co';
+  static DEFAULT_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_HPs_CdVHnpT1PqyRUwfz9Q_g5rBulj_';
 
   static getDefaultForwarders() {
     return [
@@ -53,6 +53,47 @@ class SupabaseClientDAL {
     ];
   }
 
+  static getDefaultDespachantes() {
+    return [
+      {
+        id: 'e1111111-1111-1111-1111-111111111111',
+        nombre: 'Bonelli & Asociados Despachantes DGA',
+        imagen_url: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=600&q=80',
+        whatsapp: '+5491143218800',
+        email: 'despachos@importaplus.com.ar',
+        orden: 1,
+        activo: true
+      },
+      {
+        id: 'e2222222-2222-2222-2222-222222222222',
+        nombre: 'Ezeiza Express Despachos Aduaneros',
+        imagen_url: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=600&q=80',
+        whatsapp: '+5491144802233',
+        email: 'ezeiza@importaplus.com.ar',
+        orden: 2,
+        activo: true
+      },
+      {
+        id: 'e3333333-3333-3333-3333-333333333333',
+        nombre: 'Estudio Aduanero Río de la Plata',
+        imagen_url: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=600&q=80',
+        whatsapp: '+5491150903344',
+        email: 'aduanas@importaplus.com.ar',
+        orden: 3,
+        activo: true
+      },
+      {
+        id: 'e4444444-4444-4444-4444-444444444444',
+        nombre: 'Andes & Pacífico Despachantes Matriculados',
+        imagen_url: 'https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=600&q=80',
+        whatsapp: '+5492614205544',
+        email: 'cuyo@importaplus.com.ar',
+        orden: 4,
+        activo: true
+      }
+    ];
+  }
+
   static esUrlImagenSegura(rawUrl) {
     if (!rawUrl || typeof rawUrl !== 'string') return false;
     const trimmed = rawUrl.trim();
@@ -64,17 +105,17 @@ class SupabaseClientDAL {
     return false;
   }
 
-  static normalizarLista(lista) {
+  static normalizarLista(lista, fallbackDefaults, etiquetaDefecto = 'Operador Oficial') {
     if (!Array.isArray(lista)) return [];
-    const defaults = this.getDefaultForwarders();
+    const defaults = fallbackDefaults || this.getDefaultForwarders();
     return lista
       .filter((f) => f && f.activo !== false)
       .sort((a, b) => (Number(a.orden) || 1) - (Number(b.orden) || 1))
       .map((f, idx) => {
         const rawImg = String(f.imagen_url || '').trim();
         return {
-          id: f.id || `fwd-${idx + 1}`,
-          nombre: String(f.nombre || 'Forwarder Internacional').trim().slice(0, 120),
+          id: f.id || `op-${idx + 1}`,
+          nombre: String(f.nombre || etiquetaDefecto).trim().slice(0, 120),
           imagen_url: this.esUrlImagenSegura(rawImg) ? rawImg : defaults[idx % defaults.length].imagen_url,
           whatsapp: String(f.whatsapp || '').trim(),
           email: String(f.email || '').trim(),
@@ -84,78 +125,127 @@ class SupabaseClientDAL {
       });
   }
 
-  static async obtenerForwardersGrilla() {
-    // 1. Si el .exe Admin (.NET 9) sincronizó localmente web_sync.js (funciona hasta en file:///)
-    if (typeof window !== 'undefined' && window.__IMPORTA_ADMIN_SYNC__ && Array.isArray(window.__IMPORTA_ADMIN_SYNC__.forwarders)) {
-      const localSync = this.normalizarLista(window.__IMPORTA_ADMIN_SYNC__.forwarders);
-      if (localSync.length > 0 && !(window.IMPORTA_SUPABASE_CONFIG && window.IMPORTA_SUPABASE_CONFIG.url)) {
-        return localSync;
-      }
+  static obtenerConfigSupabasePublica() {
+    const winCfg = (typeof window !== 'undefined' && window.IMPORTA_SUPABASE_CONFIG) ? window.IMPORTA_SUPABASE_CONFIG : null;
+    const url = (winCfg && winCfg.url && !winCfg.url.includes('TU_PROJECT_REF'))
+      ? winCfg.url.replace(/\/+$/, '')
+      : this.DEFAULT_SUPABASE_URL;
+    const anonKey = (winCfg && winCfg.anonKey && winCfg.anonKey !== 'tu-anon-key')
+      ? winCfg.anonKey
+      : this.DEFAULT_SUPABASE_PUBLISHABLE_KEY;
+    return { url, anonKey };
+  }
+
+  static construirHeadersSupabase(anonKey) {
+    const headers = {
+      apikey: anonKey,
+      Accept: 'application/json'
+    };
+    if (anonKey && anonKey.startsWith('eyJ')) {
+      headers.Authorization = `Bearer ${anonKey}`;
     }
+    return headers;
+  }
 
-    // 2. Verificar caché de cliente (5 minutos) para cuidar lecturas de Supabase Free
-    try {
-      const rawCache = sessionStorage.getItem(this.CACHE_KEY);
-      if (rawCache) {
-        const parsed = JSON.parse(rawCache);
-        if (parsed && Date.now() < parsed.expiresAt && Array.isArray(parsed.data) && parsed.data.length > 0) {
-          return parsed.data;
-        }
-      }
-    } catch {}
-
-    // 3. Si estamos bajo servidor HTTP/Next.js, consultar el endpoint con caché Edge (/api/v1/forwarders)
+  static async obtenerForwardersGrilla() {
+    // 1. Si estamos bajo servidor HTTP/Next.js, consultar endpoint en vivo
     if (typeof window !== 'undefined' && window.location.protocol.startsWith('http')) {
       try {
-        const res = await fetch('/api/v1/forwarders');
+        const res = await fetch('/api/v1/forwarders', { cache: 'no-store' });
         if (res.ok) {
           const json = await res.json();
-          const norm = this.normalizarLista(json.forwarders);
-          if (norm.length > 0) {
-            try {
-              sessionStorage.setItem(this.CACHE_KEY, JSON.stringify({ data: norm, expiresAt: Date.now() + this.CACHE_TTL_MS }));
-            } catch {}
-            return norm;
+          if (Array.isArray(json.forwarders)) {
+            return this.normalizarLista(json.forwarders, this.getDefaultForwarders(), 'Forwarder Internacional');
           }
         }
       } catch {}
     }
 
-    // 4. Si se configuró acceso público anon directo a Supabase en index.html
-    const cfg = typeof window !== 'undefined' ? window.IMPORTA_SUPABASE_CONFIG : null;
-    if (cfg && cfg.url && cfg.anonKey && !cfg.url.includes('TU_PROJECT_REF')) {
+    // 2. Consulta directa a Supabase Cloud (funciona incluso abriendo index.html con file:///)
+    const cfg = this.obtenerConfigSupabasePublica();
+    if (cfg.url && cfg.anonKey) {
       try {
-        const cleanUrl = cfg.url.replace(/\/+$/, '');
         const res = await fetch(
-          `${cleanUrl}/rest/v1/forwarders?select=id,nombre,imagen_url,whatsapp,email,orden,activo&activo=eq.true&order=orden.asc`,
+          `${cfg.url}/rest/v1/forwarders?select=id,nombre,imagen_url,whatsapp,email,orden,activo&activo=eq.true&order=orden.asc`,
           {
-            headers: {
-              apikey: cfg.anonKey,
-              Authorization: `Bearer ${cfg.anonKey}`,
-              Accept: 'application/json'
-            }
+            headers: this.construirHeadersSupabase(cfg.anonKey),
+            cache: 'no-store'
           }
         );
         if (res.ok) {
           const rows = await res.json();
-          const norm = this.normalizarLista(rows);
-          if (norm.length > 0) {
-            try {
-              sessionStorage.setItem(this.CACHE_KEY, JSON.stringify({ data: norm, expiresAt: Date.now() + this.CACHE_TTL_MS }));
-            } catch {}
-            return norm;
+          if (Array.isArray(rows)) {
+            return this.normalizarLista(rows, this.getDefaultForwarders(), 'Forwarder Internacional');
           }
         }
       } catch {}
     }
 
-    // 5. Fallback sincronizado o semilla oficial de 4 cuadrados
+    // 3. Respaldo offline sincronizado por AdminImportaPlus.exe o semilla oficial
     if (typeof window !== 'undefined' && window.__IMPORTA_ADMIN_SYNC__ && Array.isArray(window.__IMPORTA_ADMIN_SYNC__.forwarders)) {
-      const syncNorm = this.normalizarLista(window.__IMPORTA_ADMIN_SYNC__.forwarders);
-      if (syncNorm.length > 0) return syncNorm;
+      return this.normalizarLista(window.__IMPORTA_ADMIN_SYNC__.forwarders, this.getDefaultForwarders(), 'Forwarder Internacional');
     }
 
     return this.getDefaultForwarders();
+  }
+
+  static async obtenerDespachantesGrilla() {
+    // 1. Si estamos bajo servidor HTTP/Next.js, consultar endpoint en vivo
+    if (typeof window !== 'undefined' && window.location.protocol.startsWith('http')) {
+      try {
+        const res = await fetch('/api/v1/despachantes', { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.despachantes)) {
+            return this.normalizarLista(json.despachantes, this.getDefaultDespachantes(), 'Despachante de Aduana');
+          }
+        }
+      } catch {}
+    }
+
+    // 2. Consulta directa a Supabase Cloud (tabla public.despachantes o espejo en parametros_sistema)
+    const cfg = this.obtenerConfigSupabasePublica();
+    if (cfg.url && cfg.anonKey) {
+      try {
+        const res = await fetch(
+          `${cfg.url}/rest/v1/despachantes?select=id,nombre,imagen_url,whatsapp,email,orden,activo&activo=eq.true&order=orden.asc`,
+          {
+            headers: this.construirHeadersSupabase(cfg.anonKey),
+            cache: 'no-store'
+          }
+        );
+        if (res.ok) {
+          const rows = await res.json();
+          if (Array.isArray(rows)) {
+            return this.normalizarLista(rows, this.getDefaultDespachantes(), 'Despachante de Aduana');
+          }
+        }
+
+        const resParam = await fetch(
+          `${cfg.url}/rest/v1/parametros_sistema?select=clave,descripcion&clave=eq.CATALOGO_DESPACHANTES_JSON&limit=1`,
+          {
+            headers: this.construirHeadersSupabase(cfg.anonKey),
+            cache: 'no-store'
+          }
+        );
+        if (resParam.ok) {
+          const paramRows = await resParam.json();
+          if (Array.isArray(paramRows) && paramRows.length > 0 && paramRows[0].descripcion) {
+            const parsed = JSON.parse(paramRows[0].descripcion);
+            if (Array.isArray(parsed)) {
+              return this.normalizarLista(parsed, this.getDefaultDespachantes(), 'Despachante de Aduana');
+            }
+          }
+        }
+      } catch {}
+    }
+
+    // 3. Respaldo offline sincronizado por AdminImportaPlus.exe o semilla oficial
+    if (typeof window !== 'undefined' && window.__IMPORTA_ADMIN_SYNC__ && Array.isArray(window.__IMPORTA_ADMIN_SYNC__.despachantes)) {
+      return this.normalizarLista(window.__IMPORTA_ADMIN_SYNC__.despachantes, this.getDefaultDespachantes(), 'Despachante de Aduana');
+    }
+
+    return this.getDefaultDespachantes();
   }
 }
 

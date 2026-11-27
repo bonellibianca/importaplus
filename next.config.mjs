@@ -4,7 +4,7 @@ const ContentSecurityPolicy = [
   "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
-  "img-src 'self' data: blob: https://images.unsplash.com https://*.supabase.co",
+  "img-src 'self' data: blob: https:",
   "connect-src 'self' https://dolarapi.com https://*.supabase.co https://challenges.cloudflare.com",
   "frame-src https://challenges.cloudflare.com",
   "object-src 'none'",
@@ -25,6 +25,9 @@ const securityHeaders = [
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  outputFileTracingIncludes: {
+    '/api/**/*': ['./DAL/database/**/*']
+  },
   images: {
     unoptimized: true
   },
