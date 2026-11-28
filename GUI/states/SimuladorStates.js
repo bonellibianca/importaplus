@@ -16,19 +16,57 @@ function renderBrandBadge(sizeClass = 'h-6 md:h-7') {
   return `<img src="logo-importa.svg" alt="IMPORTA+" class="${sizeClass} w-auto object-contain select-none" />`;
 }
 
-function renderLanguageToggleButton(ctrl) {
+function renderHamburgerMenu(ctrl) {
   return `
-    <button
-      type="button"
-      onclick="window.app.alternarIdioma()"
-      title="Cambiar idioma / Switch language"
-      class="print:hidden inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 border border-white/25 text-white text-xs font-bold px-3 py-1.5 rounded-full transition-colors cursor-pointer select-none"
-    >
-      <svg class="w-3.5 h-3.5 text-rose-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-      </svg>
-      <span>${ctrl.escapeHtml(ctrl.t('toggleBtn'))}</span>
-    </button>
+    <div id="hamburger-menu-wrap" class="relative print:hidden">
+      <button
+        type="button"
+        onclick="window.app.toggleMenuHamburguesa(event)"
+        title="Menú"
+        aria-label="Abrir menú"
+        class="inline-flex items-center justify-center w-9 h-9 bg-white/10 hover:bg-white/20 border border-white/25 text-white rounded-sm transition-colors cursor-pointer select-none"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      <div
+        id="dropdown-hamburguesa"
+        class="hidden absolute right-0 mt-2 w-60 bg-white text-[#171717] rounded-sm shadow-2xl border border-[#F0D0D4] py-1.5 z-50"
+      >
+        <button
+          type="button"
+          onclick="window.app.abrirWhatsappTrabajaConNosotros()"
+          class="w-full px-4 py-2.5 text-left text-xs font-bold text-[#171717] hover:bg-[#FFF8F8] hover:text-[#530618] flex items-center gap-2.5 transition-colors cursor-pointer"
+        >
+          <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-emerald-600 text-white shrink-0">
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+              <path d="M20.52 3.48A11.82 11.82 0 0012.06 0C5.5 0 .16 5.34.16 11.9c0 2.1.55 4.15 1.6 5.95L0 24l6.32-1.66a11.86 11.86 0 005.74 1.46h.01c6.55 0 11.89-5.34 11.89-11.9 0-3.18-1.24-6.17-3.44-8.42zM12.07 21.8h-.01a9.87 9.87 0 01-5.03-1.38l-.36-.21-3.75.98 1-3.65-.24-.38a9.85 9.85 0 01-1.51-5.26c0-5.45 4.44-9.89 9.9-9.89 2.64 0 5.13 1.03 7 2.9a9.83 9.83 0 012.9 7c0 5.45-4.44 9.89-9.9 9.89zm5.43-7.41c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.88 1.22 3.08.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35z" />
+            </svg>
+          </span>
+          <span>${ctrl.escapeHtml(ctrl.t('menuTrabajaConNosotros'))}</span>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function renderFloatingLanguageSwitch(ctrl) {
+  return `
+    <div class="fixed bottom-5 right-5 z-50 print:hidden">
+      <button
+        type="button"
+        onclick="window.app.alternarIdioma()"
+        title="Cambiar idioma / Switch language"
+        class="inline-flex items-center gap-2 bg-[#420213] hover:bg-[#530618] border border-white/30 text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-xl transition-all cursor-pointer select-none"
+      >
+        <svg class="w-4 h-4 text-rose-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+        </svg>
+        <span>${ctrl.escapeHtml(ctrl.t('toggleBtn'))}</span>
+      </button>
+    </div>
   `;
 }
 
@@ -176,7 +214,7 @@ class HeroState extends VistaState {
           <div class="flex items-center cursor-pointer" onclick="window.app.setView('hero')">
             ${renderBrandBadge('h-6 md:h-7')}
           </div>
-          ${renderLanguageToggleButton(ctrl)}
+          ${renderHamburgerMenu(ctrl)}
         </header>
 
         <div class="flex-1 flex flex-col items-center justify-center text-center px-4 w-full min-h-0 py-1">
@@ -218,7 +256,7 @@ class FormularioState extends VistaState {
           </div>
           <div class="flex items-center gap-3">
             <span class="text-white/70 text-xs font-semibold uppercase tracking-widest hidden sm:inline">${ctrl.escapeHtml(ctrl.t('paso1Corto'))}</span>
-            ${renderLanguageToggleButton(ctrl)}
+            ${renderHamburgerMenu(ctrl)}
           </div>
         </header>
 
@@ -588,10 +626,10 @@ class ResultadosState extends VistaState {
             ${renderBrandBadge('h-6 md:h-7')}
           </div>
           <div class="flex items-center gap-3">
-            ${renderLanguageToggleButton(ctrl)}
             <button onclick="window.app.setView('form')" class="text-white/70 text-xs font-medium hover:text-white transition-colors">
               ${ctrl.escapeHtml(ctrl.t('nuevaConsulta'))}
             </button>
+            ${renderHamburgerMenu(ctrl)}
           </div>
         </header>
 
@@ -705,13 +743,13 @@ class DesgloseState extends VistaState {
             ${renderBrandBadge('h-6 md:h-7')}
           </div>
           <div class="flex items-center gap-3">
-            ${renderLanguageToggleButton(ctrl)}
             <button onclick="window.print()" class="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-sm transition-colors border border-white/20 cursor-pointer">
               ${ctrl.escapeHtml(ctrl.t('btnImprimirDesglose'))}
             </button>
             <button onclick="window.app.setView('results')" class="text-white/70 text-xs font-medium hover:text-white transition-colors cursor-pointer">
               ${ctrl.escapeHtml(ctrl.t('volverResultados'))}
             </button>
+            ${renderHamburgerMenu(ctrl)}
           </div>
         </header>
 
@@ -785,10 +823,10 @@ class PuertosState extends VistaState {
             ${renderBrandBadge('h-6 md:h-7')}
           </div>
           <div class="flex items-center gap-3">
-            ${renderLanguageToggleButton(ctrl)}
             <button onclick="window.app.setView('breakdown')" class="text-white/70 text-xs font-medium hover:text-white transition-colors">
               ${ctrl.escapeHtml(ctrl.t('volverDesglose'))}
             </button>
+            ${renderHamburgerMenu(ctrl)}
           </div>
         </header>
 
@@ -802,19 +840,25 @@ class PuertosState extends VistaState {
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               ${puertos.map((p) => `
-                <div class="bg-white border border-[#D8DDE3] rounded-sm p-4 shadow-sm hover:border-[#530618] transition-colors">
+                <a
+                  href="${ctrl.escapeHtml(p.google_maps_url || 'https://www.google.com/maps')}"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="block bg-white border border-[#D8DDE3] rounded-sm p-4 shadow-sm hover:border-[#530618] hover:shadow-md transition-all cursor-pointer group"
+                >
                   <div class="flex justify-between items-center mb-1">
                     <span class="text-xs font-bold text-[#530618] uppercase">${ctrl.escapeHtml(p.tipo || p.type)}</span>
                     <span class="text-[10px] text-gray-400 font-semibold">${ctrl.escapeHtml(p.operador)}</span>
                   </div>
-                  <h4 class="font-bold text-[#171717] text-base mb-1">${ctrl.escapeHtml(p.nombre || p.name)}</h4>
+                  <div class="flex items-center justify-between gap-2 mb-1">
+                    <h4 class="font-bold text-[#171717] group-hover:text-[#530618] text-base transition-colors">${ctrl.escapeHtml(p.nombre || p.name)}</h4>
+                    <span class="text-[11px] font-bold text-[#530618] shrink-0">Google Maps &#8599;</span>
+                  </div>
                   <p class="text-xs text-[#555]">${ctrl.escapeHtml(p.descripcion || p.desc)}</p>
-                </div>
+                </a>
               `).join('')}
             </div>
           </div>
-
-          ${renderForwardersGrid(ctrl)}
         </div>
       </div>
     `;
@@ -837,10 +881,10 @@ class ContactoState extends VistaState {
             ${renderBrandBadge('h-6 md:h-7')}
           </div>
           <div class="flex items-center gap-3">
-            ${renderLanguageToggleButton(ctrl)}
             <button onclick="window.app.state.calculadoraBE ? window.app.setView('results') : window.app.setView('form')" class="text-white/70 text-xs font-medium hover:text-white transition-colors">
               ${ctrl.escapeHtml(ctrl.t('volver'))}
             </button>
+            ${renderHamburgerMenu(ctrl)}
           </div>
         </header>
 
@@ -873,10 +917,10 @@ class DespachantesState extends VistaState {
             ${renderBrandBadge('h-6 md:h-7')}
           </div>
           <div class="flex items-center gap-3">
-            ${renderLanguageToggleButton(ctrl)}
             <button onclick="window.app.state.calculadoraBE ? window.app.setView('results') : window.app.setView('form')" class="text-white/70 text-xs font-medium hover:text-white transition-colors">
               ${ctrl.escapeHtml(ctrl.t('volver'))}
             </button>
+            ${renderHamburgerMenu(ctrl)}
           </div>
         </header>
 
@@ -906,10 +950,10 @@ class PlanesState extends VistaState {
             ${renderBrandBadge('h-6 md:h-7')}
           </div>
           <div class="flex items-center gap-3">
-            ${renderLanguageToggleButton(ctrl)}
             <button onclick="window.app.setView('hero')" class="text-white/70 text-xs font-medium hover:text-white transition-colors">
               ${ctrl.escapeHtml(ctrl.t('volver'))}
             </button>
+            ${renderHamburgerMenu(ctrl)}
           </div>
         </header>
         <div class="max-w-4xl mx-auto px-4 py-12 text-center">
@@ -923,6 +967,7 @@ class PlanesState extends VistaState {
 }
 
 if (typeof window !== 'undefined') {
+  window.renderFloatingLanguageSwitch = renderFloatingLanguageSwitch;
   window.VistaState = VistaState;
   window.HeroState = HeroState;
   window.FormularioState = FormularioState;

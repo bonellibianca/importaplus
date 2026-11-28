@@ -116,8 +116,21 @@ export default function ImportaPlusApp() {
   const [forwarders, setForwarders] = useState([]);
   const [despachantes, setDespachantes] = useState([]);
   const [tipoDirectorio, setTipoDirectorio] = useState("forwarders");
+  const [mostrarDirectorio, setMostrarDirectorio] = useState(false);
   const [calculando, setCalculando] = useState(false);
   const [mostrarPuertosYForwarders, setMostrarPuertosYForwarders] = useState(false);
+  const [menuHamburguesaAbierto, setMenuHamburguesaAbierto] = useState(false);
+  const menuHamburguesaRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuHamburguesaRef.current && !menuHamburguesaRef.current.contains(e.target)) {
+        setMenuHamburguesaAbierto(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   const [mailCopiadoId, setMailCopiadoId] = useState(null);
 
   const forwardersRef = useRef(null);
@@ -224,6 +237,8 @@ export default function ImportaPlusApp() {
 
   const abrirForwarders = () => {
     setTipoDirectorio("forwarders");
+    setMostrarDirectorio(true);
+    setMostrarPuertosYForwarders(false);
     setTimeout(() => {
       if (forwardersRef.current) {
         forwardersRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -233,11 +248,21 @@ export default function ImportaPlusApp() {
 
   const abrirDespachantes = () => {
     setTipoDirectorio("despachantes");
+    setMostrarDirectorio(true);
+    setMostrarPuertosYForwarders(false);
     setTimeout(() => {
       if (forwardersRef.current) {
         forwardersRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     }, 60);
+  };
+
+  const abrirWhatsappTrabajaConNosotros = () => {
+    setMenuHamburguesaAbierto(false);
+    const rawWa = forwarders[0]?.whatsapp || "+5491143218800";
+    const digits = limpiarNumeroWhatsapp(rawWa) || "5491143218800";
+    const msg = encodeURIComponent(dicc.waMensajeTrabaja || "Hola IMPORTA+, me contacto porque quiero trabajar con ustedes.");
+    window.open(`https://wa.me/${digits}?text=${msg}`, "_blank", "noopener,noreferrer");
   };
 
   const redirigirWhatsapp = (operador, esDespachante = false) => {
@@ -361,17 +386,37 @@ export default function ImportaPlusApp() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => idiomaSubject.alternarIdioma()}
-            title="Cambiar idioma / Switch language"
-            className="print:hidden inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/25 text-white text-xs font-bold px-3.5 py-1.5 rounded-full transition-colors cursor-pointer select-none"
-          >
-            <svg className="w-3.5 h-3.5 text-rose-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-            </svg>
-            <span>{dicc.toggleBtn}</span>
-          </button>
+          {/* Menú Hamburguesa en la esquina superior derecha */}
+          <div ref={menuHamburguesaRef} className="relative print:hidden">
+            <button
+              type="button"
+              onClick={() => setMenuHamburguesaAbierto((prev) => !prev)}
+              aria-label="Abrir menú"
+              aria-expanded={menuHamburguesaAbierto}
+              className="inline-flex items-center justify-center w-10 h-10 bg-white/10 hover:bg-white/20 border border-white/25 text-white rounded-lg transition-colors cursor-pointer select-none"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+
+            {menuHamburguesaAbierto && (
+              <div className="absolute right-0 mt-2 w-60 bg-white text-slate-900 rounded-xl shadow-2xl border border-rose-100 py-2 z-50">
+                <button
+                  type="button"
+                  onClick={abrirWhatsappTrabajaConNosotros}
+                  className="w-full px-4 py-2.5 text-left text-xs font-bold text-slate-800 hover:bg-rose-50 hover:text-[#530618] flex items-center gap-2.5 transition-colors cursor-pointer"
+                >
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-emerald-600 text-white shrink-0">
+                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                      <path d="M20.52 3.48A11.82 11.82 0 0012.06 0C5.5 0 .16 5.34.16 11.9c0 2.1.55 4.15 1.6 5.95L0 24l6.32-1.66a11.86 11.86 0 005.74 1.46h.01c6.55 0 11.89-5.34 11.89-11.9 0-3.18-1.24-6.17-3.44-8.42zM12.07 21.8h-.01a9.87 9.87 0 01-5.03-1.38l-.36-.21-3.75.98 1-3.65-.24-.38a9.85 9.85 0 01-1.51-5.26c0-5.45 4.44-9.89 9.9-9.89 2.64 0 5.13 1.03 7 2.9a9.83 9.83 0 012.9 7c0 5.45-4.44 9.89-9.9 9.89zm5.43-7.41c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.88 1.22 3.08.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35z" />
+                    </svg>
+                  </span>
+                  <span>{dicc.menuTrabajaConNosotros || "Trabaja con nosotros"}</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -890,7 +935,13 @@ export default function ImportaPlusApp() {
               </p>
               <button
                 type="button"
-                onClick={() => setMostrarPuertosYForwarders(!mostrarPuertosYForwarders)}
+                onClick={() => {
+                  const siguiente = !mostrarPuertosYForwarders;
+                  setMostrarPuertosYForwarders(siguiente);
+                  if (siguiente) {
+                    setMostrarDirectorio(false);
+                  }
+                }}
                 className="bg-[#530618] hover:bg-[#3D0411] text-white px-6 py-3 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
               >
                 <span>{mostrarPuertosYForwarders ? dicc.ocultarPuertos : dicc.verPuertos}</span>
@@ -900,7 +951,7 @@ export default function ImportaPlusApp() {
           </section>
         )}
 
-        {/* Módulo de Puertos y Aduanas */}
+        {/* Módulo de Puertos y Aduanas (Tarjetas clickeables hacia Google Maps en pestaña nueva, sin directorio de agentes debajo) */}
         {mostrarPuertosYForwarders && (
           <section className="space-y-6 pt-2 print:hidden">
             <div className="bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-slate-200 space-y-4">
@@ -920,17 +971,27 @@ export default function ImportaPlusApp() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {puertosSugeridos.map((puerto) => (
-                  <div
+                  <a
                     key={puerto.id || puerto.nombre}
-                    className="p-4 border border-slate-200 rounded-lg hover:border-[#530618] transition-colors bg-slate-50/50"
+                    href={puerto.google_maps_url || "https://www.google.com/maps"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block p-4 border border-slate-200 rounded-lg hover:border-[#530618] hover:shadow-md transition-all bg-slate-50/50 cursor-pointer group"
                   >
                     <div className="flex justify-between items-center mb-1">
                       <span className="text-xs font-bold text-[#530618] uppercase">
                         {puerto.via_ingreso}
                       </span>
-                      <span className="text-xs font-mono text-slate-500">{puerto.codigo_sim}</span>
+                      <span className="text-xs font-mono text-slate-500">{puerto.operador || puerto.codigo_sim}</span>
                     </div>
-                    <h4 className="font-bold text-slate-900 text-base">{puerto.nombre}</h4>
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-bold text-slate-900 text-base group-hover:text-[#530618] transition-colors">
+                        {puerto.nombre}
+                      </h4>
+                      <span className="text-[11px] font-bold text-[#530618] shrink-0">
+                        Google Maps &#8599;
+                      </span>
+                    </div>
                     <p className="text-xs text-slate-600 mt-1">{puerto.infraestructura}</p>
                     <div className="flex flex-wrap gap-1.5 mt-3">
                       {(puerto.tipos_carga || []).map((tipo, tIdx) => (
@@ -939,15 +1000,15 @@ export default function ImportaPlusApp() {
                         </span>
                       ))}
                     </div>
-                  </div>
+                  </a>
                 ))}
               </div>
             </div>
           </section>
         )}
 
-        {/* DIRECTORIO OFICIAL: MUESTRA SOLO FORWARDERS O SOLO DESPACHANTES DE ADUANA SEGÚN EL BOTÓN ELEGIDO */}
-        {(() => {
+        {/* DIRECTORIO OFICIAL: SOLO CUANDO SE ELIGE CONTACTAR FORWARDER O DESPACHANTE (NO DEBAJO DE PUERTOS/MAPAS) */}
+        {mostrarDirectorio && !mostrarPuertosYForwarders && (() => {
           const esDespachantes = tipoDirectorio === "despachantes";
           const listaActiva = esDespachantes ? despachantes : forwarders;
           if (!Array.isArray(listaActiva) || listaActiva.length === 0) return null;
@@ -1034,6 +1095,21 @@ export default function ImportaPlusApp() {
           );
         })()}
       </main>
+
+      {/* Switch de Idioma Flotante en la Esquina Inferior Derecha */}
+      <div className="fixed bottom-5 right-5 z-50 print:hidden">
+        <button
+          type="button"
+          onClick={() => idiomaSubject.alternarIdioma()}
+          title="Cambiar idioma / Switch language"
+          className="inline-flex items-center gap-2 bg-[#420213] hover:bg-[#530618] border border-white/25 text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-xl transition-all cursor-pointer select-none"
+        >
+          <svg className="w-4 h-4 text-rose-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+          </svg>
+          <span>{dicc.toggleBtn}</span>
+        </button>
+      </div>
     </div>
   );
 }

@@ -157,6 +157,9 @@ public sealed class PuertoAduanaBE
     [JsonPropertyName("longitud")]
     public decimal? Longitud { get; set; }
 
+    [JsonPropertyName("google_maps_url")]
+    public string GoogleMapsUrl { get; set; } = string.Empty;
+
     [JsonPropertyName("dvh")]
     public string Dvh { get; set; } = string.Empty;
 }

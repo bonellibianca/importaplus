@@ -594,7 +594,37 @@ public sealed class AdminGestorBLL
         return (res.Ok, $"Despachante de Aduana '{existente.Nombre}' eliminado.\n{res.Detalle}");
     }
 
-    // --- 6. ABM PUERTOS Y ADUANAS ---
+    // --- 6. ABM PUERTOS Y ADUANAS + LINKS GOOGLE MAPS ---
+
+    public static string NormalizarLinkGoogleMaps(string? rawUrl, string nombrePuerto = "", decimal? lat = null, decimal? lng = null)
+    {
+        string url = (rawUrl ?? string.Empty).Trim();
+        if (!string.IsNullOrWhiteSpace(url))
+        {
+            if (url.StartsWith("google.", StringComparison.OrdinalIgnoreCase))
+                url = "https://www." + url;
+            else if (url.StartsWith("www.google.", StringComparison.OrdinalIgnoreCase) ||
+                     url.StartsWith("maps.google.", StringComparison.OrdinalIgnoreCase) ||
+                     url.StartsWith("maps.app.goo.gl", StringComparison.OrdinalIgnoreCase))
+                url = "https://" + url;
+
+            return url;
+        }
+
+        string def = RepositorioDatosDAL.ObtenerLinkMapsOficialPorNombre(nombrePuerto);
+        if (!string.IsNullOrWhiteSpace(def)) return def;
+
+        if (lat.HasValue && lng.HasValue)
+        {
+            string coords = $"{lat.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)},{lng.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+            return $"https://www.google.com/maps/search/?api=1&query={Uri.EscapeDataString(coords)}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(nombrePuerto))
+            return $"https://www.google.com/maps/search/?api=1&query={Uri.EscapeDataString(nombrePuerto.Trim())}";
+
+        return "https://www.google.com/maps";
+    }
 
     public async Task<(bool Ok, string Mensaje)> GuardarPuertoAsync(PuertoAduanaBE puerto)
     {
@@ -605,9 +635,17 @@ public sealed class AdminGestorBLL
         puerto.Provincia = (puerto.Provincia ?? string.Empty).Trim();
         puerto.CodigoSim = (puerto.CodigoSim ?? string.Empty).Trim();
         puerto.Operador = (puerto.Operador ?? string.Empty).Trim();
+        puerto.Infraestructura = (puerto.Infraestructura ?? string.Empty).Trim();
+        puerto.GoogleMapsUrl = NormalizarLinkGoogleMaps(puerto.GoogleMapsUrl, puerto.Nombre, puerto.Latitud, puerto.Longitud);
 
         if (string.IsNullOrWhiteSpace(puerto.Nombre) || string.IsNullOrWhiteSpace(puerto.Provincia))
             return (false, "El nombre del puerto/aduana y la provincia son obligatorios.");
+
+        if (!puerto.GoogleMapsUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase) &&
+            !puerto.GoogleMapsUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+        {
+            return (false, "Ingresá un link válido de Google Maps (ej: https://www.google.com/maps/place/...).");
+        }
 
         if (puerto.Latitud.HasValue && (puerto.Latitud.Value < -90m || puerto.Latitud.Value > 90m))
             return (false, "La latitud debe encontrarse entre -90 y 90 grados.");
@@ -622,7 +660,31 @@ public sealed class AdminGestorBLL
 
         SeguridadYDigitoVerificadorBLL.RecalcularTodoEnMemoria(db, AdminActual?.Username ?? "Admin");
         var res = await Dal.GuardarBaseDatosCompletaAsync(db, rolesBll: Roles);
-        return (res.Ok, $"Puerto/Aduana '{puerto.Nombre}' actualizado.\n{res.Detalle}");
+        return (res.Ok, $"Puerto/Aduana '{puerto.Nombre}' guardado correctamente.\n{res.Detalle}");
+    }
+
+    public async Task<(bool Ok, string Mensaje)> ActualizarLinkMapsPuertoAsync(Guid puertoId, string nuevoLinkMaps)
+    {
+        var perm = VerificarPermisoBoton("btnActualizarLinkMapsPto");
+        if (!perm.Permitido) return (false, perm.Mensaje);
+
+        string linkNormalizado = NormalizarLinkGoogleMaps(nuevoLinkMaps);
+        if (string.IsNullOrWhiteSpace(nuevoLinkMaps) ||
+            (!linkNormalizado.StartsWith("https://", StringComparison.OrdinalIgnoreCase) &&
+             !linkNormalizado.StartsWith("http://", StringComparison.OrdinalIgnoreCase)))
+        {
+            return (false, "Ingresá un link válido de Google Maps (ej: https://www.google.com/maps/place/...).");
+        }
+
+        var db = await Dal.ObtenerBaseDatosActualAsync(Roles);
+        var existente = db.PuertosAduanas.FirstOrDefault(p => p.Id == puertoId);
+        if (existente == null)
+            return (false, "Primero seleccioná un puerto existente en la tabla (o usá 'Guardar Puerto / Aduana' si estás creando uno nuevo).");
+
+        existente.GoogleMapsUrl = linkNormalizado;
+        SeguridadYDigitoVerificadorBLL.RecalcularTodoEnMemoria(db, AdminActual?.Username ?? "Admin");
+        var res = await Dal.GuardarBaseDatosCompletaAsync(db, rolesBll: Roles);
+        return (res.Ok, $"Link de Google Maps actualizado para '{existente.Nombre}'.\n{res.Detalle}");
     }
 
     public async Task<(bool Ok, string Mensaje)> EliminarPuertoAsync(Guid id)

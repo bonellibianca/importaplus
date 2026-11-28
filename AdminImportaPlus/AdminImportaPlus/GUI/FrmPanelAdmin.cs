@@ -147,7 +147,7 @@ public partial class FrmPanelAdmin : Form
         btnNuevoDesp.Click += (_, _) => LimpiarEditorDespachante();
         btnEliminarDesp.Click += async (_, _) => await EliminarDespachanteDesdeUIAsync();
 
-        // --- 3. Eventos ABM Puertos y Aduanas ---
+        // --- 3. Eventos ABM Puertos y Aduanas + Links Google Maps ---
         dgvPuertos.SelectionChanged += (_, _) =>
         {
             if (dgvPuertos.CurrentRow?.DataBoundItem is PuertoAduanaBE p)
@@ -161,6 +161,29 @@ public partial class FrmPanelAdmin : Form
                 txtPuertoInfra.Text = p.Infraestructura;
                 txtPuertoLat.Text = p.Latitud?.ToString(CultureInfo.InvariantCulture) ?? "";
                 txtPuertoLng.Text = p.Longitud?.ToString(CultureInfo.InvariantCulture) ?? "";
+                txtPuertoMapsUrl.Text = AdminGestorBLL.NormalizarLinkGoogleMaps(p.GoogleMapsUrl, p.Nombre, p.Latitud, p.Longitud);
+            }
+        };
+        btnActualizarLinkMapsPto.Click += async (_, _) =>
+        {
+            var res = await _gestor.ActualizarLinkMapsPuertoAsync(_puertoEditId, txtPuertoMapsUrl.Text);
+            MessageBox.Show(res.Mensaje, "Link Google Maps de Puerto", MessageBoxButtons.OK, res.Ok ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+            if (res.Ok) await RecargarDatosUIAsync();
+        };
+        cmdProbarMapsPto.Click += (_, _) =>
+        {
+            string url = AdminGestorBLL.NormalizarLinkGoogleMaps(txtPuertoMapsUrl.Text, txtPuertoNombre.Text);
+            if (url.StartsWith("https://", StringComparison.OrdinalIgnoreCase) || url.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = url,
+                        UseShellExecute = true
+                    });
+                }
+                catch { }
             }
         };
         btnGuardarPto.Click += async (_, _) =>
@@ -200,7 +223,8 @@ public partial class FrmPanelAdmin : Form
                 Operador = txtPuertoOperador.Text,
                 Infraestructura = txtPuertoInfra.Text,
                 Latitud = lat,
-                Longitud = lng
+                Longitud = lng,
+                GoogleMapsUrl = txtPuertoMapsUrl.Text
             });
             MessageBox.Show(res.Mensaje, "Puertos y Aduanas", MessageBoxButtons.OK, res.Ok ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
             if (res.Ok) await RecargarDatosUIAsync();
@@ -210,6 +234,8 @@ public partial class FrmPanelAdmin : Form
             _puertoEditId = Guid.NewGuid();
             txtPuertoNombre.Clear(); txtPuertoProvincia.Clear(); txtPuertoSim.Clear();
             txtPuertoOperador.Clear(); txtPuertoInfra.Clear(); txtPuertoLat.Clear(); txtPuertoLng.Clear();
+            txtPuertoMapsUrl.Clear();
+            txtPuertoNombre.Focus();
         };
         btnBorrarPto.Click += async (_, _) =>
         {
@@ -404,6 +430,7 @@ public partial class FrmPanelAdmin : Form
         ["btnGuardarPto"] = btnGuardarPto,
         ["btnNuevoPto"] = btnNuevoPto,
         ["btnBorrarPto"] = btnBorrarPto,
+        ["btnActualizarLinkMapsPto"] = btnActualizarLinkMapsPto,
         ["btnCrearUsuario"] = btnCrearUsuario,
         ["btnModificarUsuario"] = btnModificarUsuario,
         ["btnDesbloquearUsuario"] = btnDesbloquearUsuario,
@@ -571,7 +598,7 @@ public partial class FrmPanelAdmin : Form
         OcultarColumnasTecnicas(dgvDespachantes, "Id", "Dvh", "ImagenUrl");
 
         dgvPuertos.DataSource = _db.PuertosAduanas.OrderBy(p => p.Nombre).ToList();
-        OcultarColumnasTecnicas(dgvPuertos, "Id", "Dvh", "Infraestructura");
+        OcultarColumnasTecnicas(dgvPuertos, "Id", "Dvh", "Infraestructura", "GoogleMapsUrl");
 
         CargarComboPerfilesUsuario();
         RefrescarGrillaUsuarios();

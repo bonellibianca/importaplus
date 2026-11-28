@@ -41,6 +41,15 @@ INSERT INTO public.despachantes (id, nombre, imagen_url, whatsapp, email, orden,
 ('e4444444-4444-4444-4444-444444444444', 'Andes & Pacífico Despachantes Matriculados', 'https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=600&q=80', '+5492614205544', 'cuyo@importaplus.com.ar', 4, TRUE)
 ON CONFLICT (id) DO NOTHING;
 
+ALTER TABLE public.puertos_aduanas ADD COLUMN IF NOT EXISTS google_maps_url TEXT DEFAULT '';
+GRANT SELECT (id, nombre, via_ingreso, provincia, codigo_sim, operador, tipos_carga, infraestructura, latitud, longitud, paises_frecuentes, google_maps_url) ON public.puertos_aduanas TO anon, authenticated;
+
+UPDATE public.puertos_aduanas SET google_maps_url = 'https://www.google.com/maps/place/Encarnaci%C3%B3n+Ezcurra+320,+C1107+Cdad.+Aut%C3%B3noma+de+Buenos+Aires/@-34.5908026,-58.3704644,16.79z/data=!4m6!3m5!1s0x95a334d72473ee5b:0x11b42bbb998547cc!8m2!3d-34.6160181!4d-58.362668!16s%2Fg%2F11r_wsrldj?entry=ttu&g_ep=EgoyMDI2MTEyMy4wIKXMDSoASAFQAw%3D%3D' WHERE lower(trim(nombre)) = 'puerto de buenos aires' AND coalesce(google_maps_url, '') = '';
+UPDATE public.puertos_aduanas SET google_maps_url = 'https://www.google.com/maps?rlz=1C1CHBF_esAR1044AR1044&fvr=1&pvq=CgkvbS8wMWt5M2Q&vet=10CAAQoqAOahcKEwjA8MSXjKmYAxUAAAAAHQAAAAAQDQ..i&cs=0&um=1&ie=UTF-8&fb=1&gl=ar&sa=X&ftid=0x95bcd0f4e2dea557:0xf19b6f81d441cc3b' WHERE lower(trim(nombre)) = 'aduana de ezeiza' AND coalesce(google_maps_url, '') = '';
+UPDATE public.puertos_aduanas SET google_maps_url = 'https://www.google.com/maps/place/Puerto+Rosario/data=!4m2!3m1!1s0x0:0x7e1e8c154b58d906?sa=X&ved=1t:2428&ictx=111' WHERE lower(trim(nombre)) = 'puerto de rosario' AND coalesce(google_maps_url, '') = '';
+UPDATE public.puertos_aduanas SET google_maps_url = 'https://www.google.com/maps/place/Puerto+de+Mar+del+Plata/@-38.050254,-57.5463923,16z/data=!4m10!1m2!2m1!1sPuerto+de+Mar+del+Plata!3m6!1s0x9584ddf29129483b:0x4d4bf245aff78945!8m2!3d-38.050254!4d-57.5381526!15sChdQdWVydG8gZGUgTWFyIGRlbCBQbGF0YVoZIhdwdWVydG8gZGUgbWFyIGRlbCBwbGF0YZIBDGZpc2hpbmdfcGllcpoBJENoZERTVWhOTUc5blMwVkpRMEZuU1VSMGEweHFlbTlCUlJBQuABAPoBBAgAED4!16s%2Fg%2F120mbqxd?entry=ttu&g_ep=EgoyMDI2MTEyMy4wIKXMDSoASAFQAw%3D%3D' WHERE lower(trim(nombre)) = 'puerto de mar del plata' AND coalesce(google_maps_url, '') = '';
+UPDATE public.puertos_aduanas SET google_maps_url = 'https://www.google.com/maps/place/Paso+Cristo+Redentor/data=!4m2!3m1!1s0x9687f4f987c60a21:0x85b25d9333d7e10b?sa=X&ved=1t:155783&ictx=111' WHERE lower(trim(nombre)) = 'paso cristo redentor' AND coalesce(google_maps_url, '') = '';
+
 ALTER TABLE public.admin_usuarios ADD COLUMN IF NOT EXISTS dni INT DEFAULT 11111111;
 ALTER TABLE public.admin_usuarios ADD COLUMN IF NOT EXISTS nombre VARCHAR(80) DEFAULT 'Administrador';
 ALTER TABLE public.admin_usuarios ADD COLUMN IF NOT EXISTS apellido VARCHAR(80) DEFAULT 'General';
@@ -236,7 +245,7 @@ BEGIN
             WHERE elem ? 'id'
         );
 
-        INSERT INTO public.puertos_aduanas (id, nombre, via_ingreso, provincia, codigo_sim, operador, infraestructura, latitud, longitud, dvh)
+        INSERT INTO public.puertos_aduanas (id, nombre, via_ingreso, provincia, codigo_sim, operador, infraestructura, latitud, longitud, google_maps_url, dvh)
         SELECT
             (elem->>'id')::UUID,
             elem->>'nombre',
@@ -247,6 +256,7 @@ BEGIN
             elem->>'infraestructura',
             NULLIF(elem->>'latitud', '')::NUMERIC,
             NULLIF(elem->>'longitud', '')::NUMERIC,
+            coalesce(elem->>'google_maps_url', ''),
             coalesce(elem->>'dvh', '')
         FROM jsonb_array_elements(p_payload->'puertos_aduanas') AS elem
         ON CONFLICT (id) DO UPDATE SET
@@ -258,7 +268,15 @@ BEGIN
             infraestructura = EXCLUDED.infraestructura,
             latitud = EXCLUDED.latitud,
             longitud = EXCLUDED.longitud,
+            google_maps_url = EXCLUDED.google_maps_url,
             dvh = EXCLUDED.dvh;
+
+        INSERT INTO public.parametros_sistema (clave, valor, descripcion, updated_at)
+        VALUES ('CATALOGO_PUERTOS_JSON', 'SYNC_RPC', (p_payload->'puertos_aduanas')::TEXT, NOW())
+        ON CONFLICT (clave) DO UPDATE SET
+            valor = EXCLUDED.valor,
+            descripcion = EXCLUDED.descripcion,
+            updated_at = NOW();
     END IF;
 
     -- Sincronizar Usuarios Administrativos

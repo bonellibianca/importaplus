@@ -25,6 +25,37 @@ public sealed class RepositorioDatosDAL
 {
     private const string DpapiPrefix = "dpapi:";
     private const string ClaveParametroDespachantes = "CATALOGO_DESPACHANTES_JSON";
+    private const string ClaveParametroPuertos = "CATALOGO_PUERTOS_JSON";
+
+    public static string ObtenerLinkMapsOficialPorNombre(string? nombrePuerto)
+    {
+        string key = (nombrePuerto ?? string.Empty).Trim().ToLowerInvariant();
+        return key switch
+        {
+            "puerto de buenos aires" => "https://www.google.com/maps/place/Encarnaci%C3%B3n+Ezcurra+320,+C1107+Cdad.+Aut%C3%B3noma+de+Buenos+Aires/@-34.5908026,-58.3704644,16.79z/data=!4m6!3m5!1s0x95a334d72473ee5b:0x11b42bbb998547cc!8m2!3d-34.6160181!4d-58.362668!16s%2Fg%2F11r_wsrldj?entry=ttu&g_ep=EgoyMDI2MTEyMy4wIKXMDSoASAFQAw%3D%3D",
+            "aduana de ezeiza" => "https://www.google.com/maps?rlz=1C1CHBF_esAR1044AR1044&fvr=1&pvq=CgkvbS8wMWt5M2Q&vet=10CAAQoqAOahcKEwjA8MSXjKmYAxUAAAAAHQAAAAAQDQ..i&cs=0&um=1&ie=UTF-8&fb=1&gl=ar&sa=X&ftid=0x95bcd0f4e2dea557:0xf19b6f81d441cc3b",
+            "puerto de rosario" => "https://www.google.com/maps/place/Puerto+Rosario/data=!4m2!3m1!1s0x0:0x7e1e8c154b58d906?sa=X&ved=1t:2428&ictx=111",
+            "puerto de mar del plata" => "https://www.google.com/maps/place/Puerto+de+Mar+del+Plata/@-38.050254,-57.5463923,16z/data=!4m10!1m2!2m1!1sPuerto+de+Mar+del+Plata!3m6!1s0x9584ddf29129483b:0x4d4bf245aff78945!8m2!3d-38.050254!4d-57.5381526!15sChdQdWVydG8gZGUgTWFyIGRlbCBQbGF0YVoZIhdwdWVydG8gZGUgbWFyIGRlbCBwbGF0YZIBDGZpc2hpbmdfcGllcpoBJENoZERTVWhOTUc5blMwVkpRMEZuU1VSMGEweHFlbTlCUlJBQuABAPoBBAgAED4!16s%2Fg%2F120mbqxd?entry=ttu&g_ep=EgoyMDI2MTEyMy4wIKXMDSoASAFQAw%3D%3D",
+            "paso cristo redentor" => "https://www.google.com/maps/place/Paso+Cristo+Redentor/data=!4m2!3m1!1s0x9687f4f987c60a21:0x85b25d9333d7e10b?sa=X&ved=1t:155783&ictx=111",
+            _ => string.Empty
+        };
+    }
+
+    private static void CompletarLinksMapsPorDefecto(IEnumerable<PuertoAduanaBE>? puertos)
+    {
+        if (puertos == null) return;
+        foreach (var p in puertos)
+        {
+            if (string.IsNullOrWhiteSpace(p.GoogleMapsUrl))
+            {
+                p.GoogleMapsUrl = AdminGestorBLL.NormalizarLinkGoogleMaps(null, p.Nombre, p.Latitud, p.Longitud);
+            }
+            else
+            {
+                p.GoogleMapsUrl = AdminGestorBLL.NormalizarLinkGoogleMaps(p.GoogleMapsUrl, p.Nombre, p.Latitud, p.Longitud);
+            }
+        }
+    }
     private static readonly Encoding Utf8SinBom = new UTF8Encoding(false);
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(45) };
 
@@ -292,6 +323,7 @@ public sealed class RepositorioDatosDAL
             var remota = await IntentarLeerDesdeSupabaseAsync(rolesBll);
             if (remota != null)
             {
+                CompletarLinksMapsPorDefecto(remota.PuertosAduanas);
                 EnriquecerUsuariosConFichasLocales(remota, rolesBll);
                 GuardarEspejoLocalYSincronizarWeb(remota);
                 return remota;
@@ -303,6 +335,7 @@ public sealed class RepositorioDatosDAL
             if (rpcRead.RpcDisponible && rpcRead.Datos != null)
             {
                 RpcDirectoActivo = true;
+                CompletarLinksMapsPorDefecto(rpcRead.Datos.PuertosAduanas);
                 EnriquecerUsuariosConFichasLocales(rpcRead.Datos, rolesBll);
                 GuardarEspejoLocalYSincronizarWeb(rpcRead.Datos);
                 return rpcRead.Datos;
@@ -317,6 +350,7 @@ public sealed class RepositorioDatosDAL
                     await File.ReadAllTextAsync(LocalDbFilePath, Encoding.UTF8), JsonOpts);
                 if (local != null && local.AdminUsuarios.Count > 0)
                 {
+                    CompletarLinksMapsPorDefecto(local.PuertosAduanas);
                     if (local.Despachantes == null || local.Despachantes.Count == 0)
                     {
                         // Si viene de una versión anterior sin Despachantes aún, cargar semilla inicial de Despachantes
@@ -502,7 +536,8 @@ public sealed class RepositorioDatosDAL
                     Operador = "AGPSE (Administración General de Puertos)",
                     Infraestructura = "Terminales 1, 2, 3, 4 y 5 (Puerto Nuevo). Escáneres de alta penetración.",
                     Latitud = -34.598500m,
-                    Longitud = -58.373100m
+                    Longitud = -58.373100m,
+                    GoogleMapsUrl = ObtenerLinkMapsOficialPorNombre("Puerto de Buenos Aires")
                 },
                 new()
                 {
@@ -514,7 +549,8 @@ public sealed class RepositorioDatosDAL
                     Operador = "ARCA-DGA / Aeropuertos Argentina 2000",
                     Infraestructura = "Terminal de Cargas Aéreas (TCA) con cámaras frigoríficas y depósito fiscal.",
                     Latitud = -34.822200m,
-                    Longitud = -58.535800m
+                    Longitud = -58.535800m,
+                    GoogleMapsUrl = ObtenerLinkMapsOficialPorNombre("Aduana de Ezeiza")
                 },
                 new()
                 {
@@ -526,7 +562,8 @@ public sealed class RepositorioDatosDAL
                     Operador = "Ente Administrador Puerto Rosario (ENAPRO)",
                     Infraestructura = "Muelle de aguas profundas sobre la Hidrovía Paraná-Paraguay.",
                     Latitud = -32.946800m,
-                    Longitud = -60.639300m
+                    Longitud = -60.639300m,
+                    GoogleMapsUrl = ObtenerLinkMapsOficialPorNombre("Puerto de Rosario")
                 },
                 new()
                 {
@@ -538,7 +575,8 @@ public sealed class RepositorioDatosDAL
                     Operador = "Gendarmería Nacional / ARCA-DGA",
                     Infraestructura = "Complejo Fronterizo Los Horcones - Corredor Bioceánico.",
                     Latitud = -32.835300m,
-                    Longitud = -70.064900m
+                    Longitud = -70.064900m,
+                    GoogleMapsUrl = ObtenerLinkMapsOficialPorNombre("Paso Cristo Redentor")
                 },
                 new()
                 {
@@ -550,7 +588,8 @@ public sealed class RepositorioDatosDAL
                     Operador = "Consorcio Portuario Regional Mar del Plata",
                     Infraestructura = "Terminal de contenedores y carga frigorífica industrial regional.",
                     Latitud = -38.005500m,
-                    Longitud = -57.542600m
+                    Longitud = -57.542600m,
+                    GoogleMapsUrl = ObtenerLinkMapsOficialPorNombre("Puerto de Mar del Plata")
                 }
             },
             Paises = new List<PaisBE>
@@ -685,6 +724,7 @@ public sealed class RepositorioDatosDAL
                 TotalNcmEnNube = dto.total_ncm
             };
 
+            CompletarLinksMapsPorDefecto(db.PuertosAduanas);
             RpcDirectoActivo = true;
             return (true, "OK", db);
         }
@@ -873,7 +913,8 @@ public sealed class RepositorioDatosDAL
                         operador = p.Operador,
                         infraestructura = p.Infraestructura,
                         latitud = p.Latitud ?? 0m,
-                        longitud = p.Longitud ?? 0m
+                        longitud = p.Longitud ?? 0m,
+                        google_maps_url = AdminGestorBLL.NormalizarLinkGoogleMaps(p.GoogleMapsUrl, p.Nombre, p.Latitud, p.Longitud)
                     })
                     .ToList()
             };
@@ -1116,9 +1157,10 @@ public sealed class RepositorioDatosDAL
             // 2. Sincronizar admin_usuarios (con fallback automático si aún no se corrió ALTER TABLE en Supabase)
             await UpsertAdminUsuariosCompatibleAsync(db.AdminUsuarios);
 
-            // 3. Sincronizar Forwarders y Puertos
+            // 3. Sincronizar Forwarders y Puertos (con fallback compatible si aún no se agregó google_maps_url en SQL)
             await UpsertSupabaseAsync("forwarders?on_conflict=id", db.Forwarders);
-            await UpsertSupabaseAsync("puertos_aduanas?on_conflict=id", db.PuertosAduanas);
+            await UpsertPuertosCompatibleAsync(db.PuertosAduanas);
+            await SincronizarEspejoPuertosParametroAsync(db.PuertosAduanas);
 
             // 4. Sincronizar Despachantes de Aduana (en tabla public.despachantes si existe + espejo en parametros_sistema)
             bool tablaDespachantesExiste = await IntentarSincronizarTablaDespachantesAsync(db.Despachantes);
@@ -1198,6 +1240,47 @@ public sealed class RepositorioDatosDAL
                 clave = ClaveParametroDespachantes,
                 valor = $"SYNC_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}",
                 descripcion = JsonSerializer.Serialize(despachantes, JsonOpts),
+                updated_at = DateTimeOffset.UtcNow
+            }
+        };
+        await UpsertSupabaseAsync("parametros_sistema?on_conflict=clave", dto);
+    }
+
+    private async Task UpsertPuertosCompatibleAsync(List<PuertoAduanaBE> puertos)
+    {
+        if (puertos.Count == 0) return;
+        try
+        {
+            await UpsertSupabaseAsync("puertos_aduanas?on_conflict=id", puertos);
+        }
+        catch
+        {
+            var sinColumnaMaps = puertos.Select(p => new
+            {
+                id = p.Id,
+                nombre = p.Nombre,
+                via_ingreso = p.ViaIngreso,
+                provincia = p.Provincia,
+                codigo_sim = p.CodigoSim,
+                operador = p.Operador,
+                infraestructura = p.Infraestructura,
+                latitud = p.Latitud,
+                longitud = p.Longitud,
+                dvh = p.Dvh
+            }).ToList();
+            await UpsertSupabaseAsync("puertos_aduanas?on_conflict=id", sinColumnaMaps);
+        }
+    }
+
+    private async Task SincronizarEspejoPuertosParametroAsync(List<PuertoAduanaBE> puertos)
+    {
+        var dto = new List<object>
+        {
+            new
+            {
+                clave = ClaveParametroPuertos,
+                valor = $"SYNC_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}",
+                descripcion = JsonSerializer.Serialize(puertos, JsonOpts),
                 updated_at = DateTimeOffset.UtcNow
             }
         };

@@ -55,6 +55,7 @@ public sealed class RolesCompositeBLL
         (Guid.Parse("10000002-0000-0000-0000-000000000017"), "btnGuardarPto", "Puertos · Guardar Puerto / Aduana"),
         (Guid.Parse("10000002-0000-0000-0000-000000000018"), "btnNuevoPto", "Puertos · Nuevo Puerto"),
         (Guid.Parse("10000002-0000-0000-0000-000000000019"), "btnBorrarPto", "Puertos · Eliminar"),
+        (Guid.Parse("10000002-0000-0000-0000-000000000031"), "btnActualizarLinkMapsPto", "Puertos · Actualizar Link Google Maps"),
 
         // Botones Gestión de Usuarios
         (Guid.Parse("10000002-0000-0000-0000-000000000020"), "btnCrearUsuario", "Usuarios · Crear"),
@@ -106,6 +107,13 @@ public sealed class RolesCompositeBLL
                     loaded.PerfilPorUsuario = new Dictionary<string, Guid>(
                         loaded.PerfilPorUsuario ?? new(),
                         StringComparer.OrdinalIgnoreCase);
+
+                    // Asegurar que nuevos botones oficiales se incorporen y que la cuenta semilla Admin tenga todos los permisos adquiridos por defecto
+                    bool modificado = SincronizarNuevosBotonesYCuentaAdminSemilla(loaded);
+                    if (modificado)
+                    {
+                        File.WriteAllText(_rolesFilePath, JsonSerializer.Serialize(loaded, JsonOpts), Encoding.UTF8);
+                    }
                     return loaded;
                 }
             }
@@ -116,6 +124,91 @@ public sealed class RolesCompositeBLL
         Store = semilla;
         Guardar();
         return semilla;
+    }
+
+    private static bool SincronizarNuevosBotonesYCuentaAdminSemilla(RolesStoreBE store)
+    {
+        bool cambio = false;
+
+        foreach (var oficial in CatalogoOficialBotones)
+        {
+            if (!store.Permisos.Any(p => string.Equals(p.Codigo, oficial.NombreBoton, StringComparison.OrdinalIgnoreCase)))
+            {
+                store.Permisos.Add(new PermisoDto
+                {
+                    Id = oficial.Id,
+                    Codigo = oficial.NombreBoton,
+                    Nombre = oficial.EtiquetaBoton,
+                    NombreFormulario = "FrmPanelAdmin"
+                });
+                cambio = true;
+            }
+        }
+
+        var permMaps = store.Permisos.FirstOrDefault(p => string.Equals(p.Codigo, "btnActualizarLinkMapsPto", StringComparison.OrdinalIgnoreCase));
+        var famPuertos = store.Familias.FirstOrDefault(f => string.Equals(f.Codigo, "FAM_BOTONES_PUERTOS", StringComparison.OrdinalIgnoreCase));
+        if (permMaps != null && famPuertos != null && !famPuertos.HijosIds.Contains(permMaps.Id))
+        {
+            famPuertos.HijosIds.Add(permMaps.Id);
+            cambio = true;
+        }
+
+        var perfilAdmin = store.Perfiles.FirstOrDefault(p => string.Equals(p.Nombre, "Administrador", StringComparison.OrdinalIgnoreCase));
+        if (perfilAdmin == null)
+        {
+            perfilAdmin = new PerfilBE
+            {
+                Id = Guid.Parse("30000002-0000-0000-0000-000000000001"),
+                Nombre = "Administrador",
+                Descripcion = "Acceso total a todos los botones del sistema."
+            };
+            store.Perfiles.Insert(0, perfilAdmin);
+            cambio = true;
+        }
+
+        // Asegurar que el perfil Administrador tenga adquiridas todas las familias / permisos de botones por default
+        foreach (var fam in store.Familias)
+        {
+            if (!perfilAdmin.ComponentesAsignadosIds.Contains(fam.Id))
+            {
+                perfilAdmin.ComponentesAsignadosIds.Add(fam.Id);
+                cambio = true;
+            }
+        }
+        if (store.Familias.Count == 0)
+        {
+            foreach (var p in store.Permisos)
+            {
+                if (!perfilAdmin.ComponentesAsignadosIds.Contains(p.Id))
+                {
+                    perfilAdmin.ComponentesAsignadosIds.Add(p.Id);
+                    cambio = true;
+                }
+            }
+        }
+
+        // Garantizar que la cuenta semilla 'Admin' apunte al perfil Administrador con todos los permisos adquiridos por default
+        if (!store.PerfilPorUsuario.TryGetValue("Admin", out var pidAdmin) || pidAdmin != perfilAdmin.Id)
+        {
+            store.PerfilPorUsuario["Admin"] = perfilAdmin.Id;
+            cambio = true;
+        }
+
+        if (!store.FichasUsuarios.Any(f => string.Equals(f.Username, "Admin", StringComparison.OrdinalIgnoreCase)))
+        {
+            store.FichasUsuarios.Add(new UsuarioFichaExtendidaDto
+            {
+                Username = "Admin",
+                Dni = 11111111,
+                Nombre = "Administrador",
+                Apellido = "General",
+                Bloqueado = false,
+                PerfilId = perfilAdmin.Id
+            });
+            cambio = true;
+        }
+
+        return cambio;
     }
 
     public static RolesStoreBE CrearSemillaBotonesPuros()
@@ -172,7 +265,8 @@ public sealed class RolesCompositeBLL
                 IdBtn("btnNavPuertos"),
                 IdBtn("btnGuardarPto"),
                 IdBtn("btnNuevoPto"),
-                IdBtn("btnBorrarPto")
+                IdBtn("btnBorrarPto"),
+                IdBtn("btnActualizarLinkMapsPto")
             }
         };
 
@@ -276,6 +370,7 @@ public sealed class RolesCompositeBLL
         remoto.PerfilPorUsuario = new Dictionary<string, Guid>(
             remoto.PerfilPorUsuario ?? new(),
             StringComparer.OrdinalIgnoreCase);
+        SincronizarNuevosBotonesYCuentaAdminSemilla(remoto);
         Store = remoto;
         File.WriteAllText(_rolesFilePath, JsonSerializer.Serialize(Store, JsonOpts), Encoding.UTF8);
     }

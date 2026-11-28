@@ -79,6 +79,25 @@ class SimuladorController {
     }
   }
 
+  toggleMenuHamburguesa(e) {
+    if (e && e.stopPropagation) e.stopPropagation();
+    const drop = document.getElementById('dropdown-hamburguesa');
+    if (drop) {
+      drop.classList.toggle('hidden');
+    }
+  }
+
+  abrirWhatsappTrabajaConNosotros() {
+    const drop = document.getElementById('dropdown-hamburguesa');
+    if (drop) drop.classList.add('hidden');
+
+    const primerFwd = (this.state.forwardersCatalogo || [])[0];
+    const rawWa = (primerFwd && primerFwd.whatsapp) ? primerFwd.whatsapp : '+5491143218800';
+    const digits = String(rawWa).replace(/[^0-9]/g, '') || '5491143218800';
+    const msg = encodeURIComponent(this.t('waMensajeTrabaja'));
+    window.open(`https://wa.me/${digits}?text=${msg}`, '_blank', 'noopener,noreferrer');
+  }
+
   /**
    * Sanitización anti-XSS para atributos y nodos HTML (corrige vulnerabilidad XSS en plantillas)
    */
@@ -95,6 +114,17 @@ class SimuladorController {
     // Suscribir este controlador como Observador Concreto del Sujeto de Idioma
     if (window.idiomaSubject) {
       window.idiomaSubject.suscribir(this);
+    }
+
+    if (!this._outsideMenuBound) {
+      this._outsideMenuBound = true;
+      document.addEventListener('click', (e) => {
+        const wrap = document.getElementById('hamburger-menu-wrap');
+        const drop = document.getElementById('dropdown-hamburguesa');
+        if (drop && !drop.classList.contains('hidden') && wrap && !wrap.contains(e.target)) {
+          drop.classList.add('hidden');
+        }
+      });
     }
 
     try {
@@ -131,7 +161,10 @@ class SimuladorController {
   render() {
     const app = document.getElementById('app');
     if (!app || !this.currentState) return;
-    app.innerHTML = this.currentState.render(this);
+    const switchFlotante = typeof window.renderFloatingLanguageSwitch === 'function'
+      ? window.renderFloatingLanguageSwitch(this)
+      : '';
+    app.innerHTML = this.currentState.render(this) + switchFlotante;
     if (this.currentState.bindEvents) {
       this.currentState.bindEvents(this);
     }
@@ -442,9 +475,12 @@ class SimuladorController {
           <h4 style="margin: 0 0 4px 0; font-size: 13px; font-weight: 800; color: #0F172A; line-height: 1.2;">
             ${this.escapeHtml(p.nombre || p.name)}
           </h4>
-          <p style="margin: 0 0 6px 0; font-size: 11px; color: #64748B; line-height: 1.35;">
+          <p style="margin: 0 0 8px 0; font-size: 11px; color: #64748B; line-height: 1.35;">
             ${this.escapeHtml(p.descripcion || p.desc)}
           </p>
+          <a href="${this.escapeHtml(p.google_maps_url || 'https://www.google.com/maps')}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: #530618; text-decoration: none;">
+            ${this.escapeHtml(this.t('verEnGoogleMaps'))} &#8599;
+          </a>
         </div>
       `;
       marker.bindPopup(popupHtml);

@@ -98,6 +98,10 @@ partial class FrmPanelAdmin
     private System.Windows.Forms.TextBox txtPuertoLat = null!;
     private System.Windows.Forms.Label lblPtoLng = null!;
     private System.Windows.Forms.TextBox txtPuertoLng = null!;
+    private System.Windows.Forms.Label lblPtoMapsUrl = null!;
+    private System.Windows.Forms.TextBox txtPuertoMapsUrl = null!;
+    private AdminImportaPlus.GUI.AppleButton btnActualizarLinkMapsPto = null!;
+    private AdminImportaPlus.GUI.AppleButton cmdProbarMapsPto = null!;
     private AdminImportaPlus.GUI.AppleButton btnGuardarPto = null!;
     private AdminImportaPlus.GUI.AppleButton btnNuevoPto = null!;
     private AdminImportaPlus.GUI.AppleButton btnBorrarPto = null!;
@@ -298,6 +302,10 @@ partial class FrmPanelAdmin
         this.btnBorrarPto = new AdminImportaPlus.GUI.AppleButton();
         this.btnNuevoPto = new AdminImportaPlus.GUI.AppleButton();
         this.btnGuardarPto = new AdminImportaPlus.GUI.AppleButton();
+        this.btnActualizarLinkMapsPto = new AdminImportaPlus.GUI.AppleButton();
+        this.cmdProbarMapsPto = new AdminImportaPlus.GUI.AppleButton();
+        this.txtPuertoMapsUrl = new System.Windows.Forms.TextBox();
+        this.lblPtoMapsUrl = new System.Windows.Forms.Label();
         this.txtPuertoLng = new System.Windows.Forms.TextBox();
         this.lblPtoLng = new System.Windows.Forms.Label();
         this.txtPuertoLat = new System.Windows.Forms.TextBox();
@@ -1010,6 +1018,10 @@ partial class FrmPanelAdmin
         this.pnlPtoForm.Controls.Add(this.btnBorrarPto);
         this.pnlPtoForm.Controls.Add(this.btnNuevoPto);
         this.pnlPtoForm.Controls.Add(this.btnGuardarPto);
+        this.pnlPtoForm.Controls.Add(this.cmdProbarMapsPto);
+        this.pnlPtoForm.Controls.Add(this.btnActualizarLinkMapsPto);
+        this.pnlPtoForm.Controls.Add(this.txtPuertoMapsUrl);
+        this.pnlPtoForm.Controls.Add(this.lblPtoMapsUrl);
         this.pnlPtoForm.Controls.Add(this.txtPuertoLng);
         this.pnlPtoForm.Controls.Add(this.lblPtoLng);
         this.pnlPtoForm.Controls.Add(this.txtPuertoLat);
@@ -1058,10 +1070,37 @@ partial class FrmPanelAdmin
         this.lblPtoLng.Location = new System.Drawing.Point(210, 348); this.lblPtoLng.Text = "LONGITUD";
         this.txtPuertoLng.Location = new System.Drawing.Point(210, 368); this.txtPuertoLng.Size = new System.Drawing.Size(180, 23);
 
+        this.lblPtoMapsUrl.AutoSize = true; this.lblPtoMapsUrl.Font = new System.Drawing.Font("Segoe UI Semibold", 8F);
+        this.lblPtoMapsUrl.ForeColor = System.Drawing.Color.FromArgb(83, 6, 24);
+        this.lblPtoMapsUrl.Location = new System.Drawing.Point(20, 402); this.lblPtoMapsUrl.Text = "LINK DE GOOGLE MAPS (REDIRECCIÓN EN PESTAÑA NUEVA) *";
+        this.txtPuertoMapsUrl.Location = new System.Drawing.Point(20, 422);
+        this.txtPuertoMapsUrl.PlaceholderText = "https://www.google.com/maps/place/...";
+        this.txtPuertoMapsUrl.Size = new System.Drawing.Size(370, 23);
+
+        this.btnActualizarLinkMapsPto.BackColor = System.Drawing.Color.FromArgb(5, 150, 105);
+        this.btnActualizarLinkMapsPto.CornerRadius = 10;
+        this.btnActualizarLinkMapsPto.ForeColor = System.Drawing.Color.White;
+        this.btnActualizarLinkMapsPto.HoverBackColor = System.Drawing.Color.FromArgb(4, 120, 87);
+        this.btnActualizarLinkMapsPto.Location = new System.Drawing.Point(20, 454);
+        this.btnActualizarLinkMapsPto.Name = "btnActualizarLinkMapsPto";
+        this.btnActualizarLinkMapsPto.Size = new System.Drawing.Size(252, 36);
+        this.btnActualizarLinkMapsPto.Text = "Actualizar Link Google Maps";
+
+        this.cmdProbarMapsPto.BackColor = System.Drawing.Color.FromArgb(245, 245, 247);
+        this.cmdProbarMapsPto.BorderColor = System.Drawing.Color.FromArgb(229, 231, 235);
+        this.cmdProbarMapsPto.BorderThickness = 1;
+        this.cmdProbarMapsPto.CornerRadius = 10;
+        this.cmdProbarMapsPto.ForeColor = System.Drawing.Color.FromArgb(83, 6, 24);
+        this.cmdProbarMapsPto.HoverBackColor = System.Drawing.Color.FromArgb(255, 240, 243);
+        this.cmdProbarMapsPto.Location = new System.Drawing.Point(280, 454);
+        this.cmdProbarMapsPto.Name = "cmdProbarMapsPto";
+        this.cmdProbarMapsPto.Size = new System.Drawing.Size(110, 36);
+        this.cmdProbarMapsPto.Text = "↗ Probar Link";
+
         this.btnGuardarPto.BackColor = System.Drawing.Color.FromArgb(83, 6, 24);
         this.btnGuardarPto.CornerRadius = 12;
         this.btnGuardarPto.ForeColor = System.Drawing.Color.White;
-        this.btnGuardarPto.Location = new System.Drawing.Point(20, 414);
+        this.btnGuardarPto.Location = new System.Drawing.Point(20, 500);
         this.btnGuardarPto.Name = "btnGuardarPto";
         this.btnGuardarPto.Size = new System.Drawing.Size(370, 40);
         this.btnGuardarPto.Text = "Guardar Puerto / Aduana";
@@ -1071,7 +1110,7 @@ partial class FrmPanelAdmin
         this.btnNuevoPto.BorderThickness = 1;
         this.btnNuevoPto.CornerRadius = 10;
         this.btnNuevoPto.ForeColor = System.Drawing.Color.FromArgb(29, 29, 31);
-        this.btnNuevoPto.Location = new System.Drawing.Point(20, 466);
+        this.btnNuevoPto.Location = new System.Drawing.Point(20, 550);
         this.btnNuevoPto.Name = "btnNuevoPto";
         this.btnNuevoPto.Size = new System.Drawing.Size(178, 36);
         this.btnNuevoPto.Text = "Nuevo Puerto";
@@ -1081,7 +1120,7 @@ partial class FrmPanelAdmin
         this.btnBorrarPto.BorderThickness = 1;
         this.btnBorrarPto.CornerRadius = 10;
         this.btnBorrarPto.ForeColor = System.Drawing.Color.FromArgb(159, 18, 57);
-        this.btnBorrarPto.Location = new System.Drawing.Point(212, 466);
+        this.btnBorrarPto.Location = new System.Drawing.Point(212, 550);
         this.btnBorrarPto.Name = "btnBorrarPto";
         this.btnBorrarPto.Size = new System.Drawing.Size(178, 36);
         this.btnBorrarPto.Text = "Eliminar";

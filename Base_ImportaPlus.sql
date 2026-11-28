@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS public.puertos_aduanas (
 );
 
 ALTER TABLE public.puertos_aduanas ADD COLUMN IF NOT EXISTS dvh VARCHAR(64) NOT NULL DEFAULT '';
+ALTER TABLE public.puertos_aduanas ADD COLUMN IF NOT EXISTS google_maps_url TEXT DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS public.forwarders (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -217,7 +218,7 @@ ON public.ncm_catalogo TO anon, authenticated;
 GRANT SELECT (codigo_iso, nombre, es_mercosur, flete_estimado_pct)
 ON public.paises TO anon, authenticated;
 
-GRANT SELECT (id, nombre, via_ingreso, provincia, codigo_sim, operador, tipos_carga, infraestructura, latitud, longitud, paises_frecuentes)
+GRANT SELECT (id, nombre, via_ingreso, provincia, codigo_sim, operador, tipos_carga, infraestructura, latitud, longitud, paises_frecuentes, google_maps_url)
 ON public.puertos_aduanas TO anon, authenticated;
 
 GRANT SELECT (id, nombre, imagen_url, whatsapp, email, orden, activo)
@@ -911,10 +912,12 @@ BEGIN
 
     IF p_payload ? 'puertos_aduanas' THEN
         DELETE FROM public.puertos_aduanas WHERE id NOT IN (SELECT (elem->>'id')::UUID FROM jsonb_array_elements(p_payload->'puertos_aduanas') AS elem WHERE elem ? 'id');
-        INSERT INTO public.puertos_aduanas (id, nombre, via_ingreso, provincia, codigo_sim, operador, infraestructura, latitud, longitud, dvh)
-        SELECT (elem->>'id')::UUID, elem->>'nombre', elem->>'via_ingreso', elem->>'provincia', elem->>'codigo_sim', elem->>'operador', elem->>'infraestructura', NULLIF(elem->>'latitud', '')::NUMERIC, NULLIF(elem->>'longitud', '')::NUMERIC, coalesce(elem->>'dvh', '')
+        INSERT INTO public.puertos_aduanas (id, nombre, via_ingreso, provincia, codigo_sim, operador, infraestructura, latitud, longitud, google_maps_url, dvh)
+        SELECT (elem->>'id')::UUID, elem->>'nombre', elem->>'via_ingreso', elem->>'provincia', elem->>'codigo_sim', elem->>'operador', elem->>'infraestructura', NULLIF(elem->>'latitud', '')::NUMERIC, NULLIF(elem->>'longitud', '')::NUMERIC, coalesce(elem->>'google_maps_url', ''), coalesce(elem->>'dvh', '')
         FROM jsonb_array_elements(p_payload->'puertos_aduanas') AS elem
-        ON CONFLICT (id) DO UPDATE SET nombre = EXCLUDED.nombre, via_ingreso = EXCLUDED.via_ingreso, provincia = EXCLUDED.provincia, codigo_sim = EXCLUDED.codigo_sim, operador = EXCLUDED.operador, infraestructura = EXCLUDED.infraestructura, latitud = EXCLUDED.latitud, longitud = EXCLUDED.longitud, dvh = EXCLUDED.dvh;
+        ON CONFLICT (id) DO UPDATE SET nombre = EXCLUDED.nombre, via_ingreso = EXCLUDED.via_ingreso, provincia = EXCLUDED.provincia, codigo_sim = EXCLUDED.codigo_sim, operador = EXCLUDED.operador, infraestructura = EXCLUDED.infraestructura, latitud = EXCLUDED.latitud, longitud = EXCLUDED.longitud, google_maps_url = EXCLUDED.google_maps_url, dvh = EXCLUDED.dvh;
+        INSERT INTO public.parametros_sistema (clave, valor, descripcion, updated_at) VALUES ('CATALOGO_PUERTOS_JSON', 'SYNC_RPC', (p_payload->'puertos_aduanas')::TEXT, NOW())
+        ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor, descripcion = EXCLUDED.descripcion, updated_at = NOW();
     END IF;
 
     IF p_payload ? 'admin_usuarios' AND jsonb_array_length(p_payload->'admin_usuarios') > 0 THEN

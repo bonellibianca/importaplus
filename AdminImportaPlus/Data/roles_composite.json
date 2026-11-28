@@ -180,6 +180,12 @@
       "Codigo": "btnEmpujarNube",
       "Nombre": "Supabase · Sincronizar Datos",
       "NombreFormulario": "FrmPanelAdmin"
+    },
+    {
+      "Id": "10000002-0000-0000-0000-000000000031",
+      "Codigo": "btnActualizarLinkMapsPto",
+      "Nombre": "Puertos · Actualizar Link Google Maps",
+      "NombreFormulario": "FrmPanelAdmin"
     }
   ],
   "Familias": [
@@ -215,7 +221,8 @@
         "10000002-0000-0000-0000-000000000003",
         "10000002-0000-0000-0000-000000000017",
         "10000002-0000-0000-0000-000000000018",
-        "10000002-0000-0000-0000-000000000019"
+        "10000002-0000-0000-0000-000000000019",
+        "10000002-0000-0000-0000-000000000031"
       ]
     },
     {
@@ -272,10 +279,17 @@
         "20000002-0000-0000-0000-000000000003",
         "10000002-0000-0000-0000-000000000008"
       ]
+    },
+    {
+      "Id": "002a7088-725e-4c4e-9b75-c5d984f67f6f",
+      "Nombre": "Test",
+      "Descripcion": "",
+      "ComponentesAsignadosIds": []
     }
   ],
   "PerfilPorUsuario": {
-    "Admin": "30000002-0000-0000-0000-000000000001"
+    "Admin": "30000002-0000-0000-0000-000000000001",
+    "CodigoMecha": "30000002-0000-0000-0000-000000000001"
   },
   "FichasUsuarios": [
     {
@@ -283,6 +297,14 @@
       "Dni": 11111111,
       "Nombre": "Administrador",
       "Apellido": "General",
+      "Bloqueado": false,
+      "PerfilId": "30000002-0000-0000-0000-000000000001"
+    },
+    {
+      "Username": "CodigoMecha",
+      "Dni": 41236101,
+      "Nombre": "Gustavo",
+      "Apellido": "Britez",
       "Bloqueado": false,
       "PerfilId": "30000002-0000-0000-0000-000000000001"
     }

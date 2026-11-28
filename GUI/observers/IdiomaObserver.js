@@ -103,6 +103,9 @@ const DICCIONARIO_IDIOMAS = {
     mailCopiado: '¡Mail copiado!',
     waMensajeDefault: 'Hola, me contacto desde IMPORTA+ para cotizar un flete internacional.',
     waMensajeDespachante: 'Hola, me contacto desde IMPORTA+ para consultar por despacho aduanero de importación.',
+    menuTrabajaConNosotros: 'Trabaja con nosotros',
+    waMensajeTrabaja: 'Hola IMPORTA+, me contacto porque quiero trabajar con ustedes.',
+    verEnGoogleMaps: 'Abrir en Google Maps',
     // Conceptos de desglose
     itemFob: 'Valor total del producto (FOB)',
     noteFob: 'Precio de compra en puerto de origen',
@@ -224,6 +227,9 @@ const DICCIONARIO_IDIOMAS = {
     mailCopiado: 'Email copied!',
     waMensajeDefault: 'Hello, I am reaching out from IMPORTA+ to request an international freight quote.',
     waMensajeDespachante: 'Hello, I am reaching out from IMPORTA+ to inquire about customs clearance services.',
+    menuTrabajaConNosotros: 'Work with us',
+    waMensajeTrabaja: 'Hello IMPORTA+, I am reaching out because I would like to work with you.',
+    verEnGoogleMaps: 'Open in Google Maps',
     // Conceptos de desglose
     itemFob: 'Total merchandise value (FOB)',
     noteFob: 'Purchase price at port of origin',
