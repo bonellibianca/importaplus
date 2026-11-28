@@ -17,6 +17,7 @@ function renderBrandBadge(sizeClass = 'h-6 md:h-7') {
 }
 
 function renderHamburgerMenu(ctrl) {
+  const isOpenClass = ctrl.state && ctrl.state.menuHamburguesaAbierto ? 'is-open' : '';
   return `
     <div id="hamburger-menu-wrap" class="relative print:hidden">
       <button
@@ -24,28 +25,35 @@ function renderHamburgerMenu(ctrl) {
         onclick="window.app.toggleMenuHamburguesa(event)"
         title="Menú"
         aria-label="Abrir menú"
-        class="inline-flex items-center justify-center w-9 h-9 bg-white/10 hover:bg-white/20 border border-white/25 text-white rounded-sm transition-colors cursor-pointer select-none"
+        class="inline-flex items-center justify-center w-8 h-8 bg-white/[0.08] hover:bg-white/[0.15] border border-white/[0.16] text-white/90 hover:text-white rounded-[10px] backdrop-blur-md transition-all duration-200 active:scale-95 cursor-pointer select-none"
       >
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 6h16M4 12h16M4 18h16" />
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.65" d="M4.75 7.25h14.5M4.75 12h14.5M4.75 16.75h14.5" />
         </svg>
       </button>
 
       <div
         id="dropdown-hamburguesa"
-        class="hidden absolute right-0 mt-2 w-60 bg-white text-[#171717] rounded-sm shadow-2xl border border-[#F0D0D4] py-1.5 z-50"
+        class="apple-popover ${isOpenClass} absolute right-0 mt-2 min-w-[194px] rounded-[14px] p-1 z-50"
       >
         <button
           type="button"
           onclick="window.app.abrirWhatsappTrabajaConNosotros()"
-          class="w-full px-4 py-2.5 text-left text-xs font-bold text-[#171717] hover:bg-[#FFF8F8] hover:text-[#530618] flex items-center gap-2.5 transition-colors cursor-pointer"
+          class="apple-popover-item group w-full px-2.5 py-2 rounded-[10px] text-left flex items-center justify-between gap-3 cursor-pointer select-none"
         >
-          <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-emerald-600 text-white shrink-0">
-            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
-              <path d="M20.52 3.48A11.82 11.82 0 0012.06 0C5.5 0 .16 5.34.16 11.9c0 2.1.55 4.15 1.6 5.95L0 24l6.32-1.66a11.86 11.86 0 005.74 1.46h.01c6.55 0 11.89-5.34 11.89-11.9 0-3.18-1.24-6.17-3.44-8.42zM12.07 21.8h-.01a9.87 9.87 0 01-5.03-1.38l-.36-.21-3.75.98 1-3.65-.24-.38a9.85 9.85 0 01-1.51-5.26c0-5.45 4.44-9.89 9.9-9.89 2.64 0 5.13 1.03 7 2.9a9.83 9.83 0 012.9 7c0 5.45-4.44 9.89-9.9 9.89zm5.43-7.41c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.88 1.22 3.08.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35z" />
-            </svg>
+          <span class="flex items-center gap-2.5 min-w-0">
+            <span class="inline-flex items-center justify-center w-[22px] h-[22px] rounded-[7px] bg-[#1d1d1f]/[0.05] group-hover:bg-[#25D366]/[0.13] text-[#1d1d1f]/70 group-hover:text-[#179c49] transition-colors duration-200 shrink-0">
+              <svg class="w-[13px] h-[13px] fill-current" viewBox="0 0 24 24">
+                <path d="M20.52 3.48A11.82 11.82 0 0012.06 0C5.5 0 .16 5.34.16 11.9c0 2.1.55 4.15 1.6 5.95L0 24l6.32-1.66a11.86 11.86 0 005.74 1.46h.01c6.55 0 11.89-5.34 11.89-11.9 0-3.18-1.24-6.17-3.44-8.42zM12.07 21.8h-.01a9.87 9.87 0 01-5.03-1.38l-.36-.21-3.75.98 1-3.65-.24-.38a9.85 9.85 0 01-1.51-5.26c0-5.45 4.44-9.89 9.9-9.89 2.64 0 5.13 1.03 7 2.9a9.83 9.83 0 012.9 7c0 5.45-4.44 9.89-9.9 9.89zm5.43-7.41c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.88 1.22 3.08.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35z" />
+              </svg>
+            </span>
+            <span class="text-[12px] font-medium tracking-[-0.01em] text-[#1d1d1f]/90 group-hover:text-[#1d1d1f] whitespace-nowrap transition-colors">
+              ${ctrl.escapeHtml(ctrl.t('menuTrabajaConNosotros'))}
+            </span>
           </span>
-          <span>${ctrl.escapeHtml(ctrl.t('menuTrabajaConNosotros'))}</span>
+          <svg class="w-3 h-3 text-[#1d1d1f]/30 group-hover:text-[#1d1d1f]/60 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all duration-200 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 17L17 7M9 7h8v8" />
+          </svg>
         </button>
       </div>
     </div>
@@ -874,6 +882,7 @@ class PuertosState extends VistaState {
  */
 class ContactoState extends VistaState {
   render(ctrl) {
+    const backTarget = ctrl.state.returnView || (ctrl.state.calculadoraBE ? 'results' : 'form');
     return `
       <div class="min-h-screen bg-[#F4F6F8]">
         <header class="bg-[#420213] px-6 py-4 flex items-center justify-between shadow-sm">
@@ -881,7 +890,7 @@ class ContactoState extends VistaState {
             ${renderBrandBadge('h-6 md:h-7')}
           </div>
           <div class="flex items-center gap-3">
-            <button onclick="window.app.state.calculadoraBE ? window.app.setView('results') : window.app.setView('form')" class="text-white/70 text-xs font-medium hover:text-white transition-colors">
+            <button onclick="window.app.setView('${backTarget}')" class="text-white/70 text-xs font-medium hover:text-white transition-colors cursor-pointer">
               ${ctrl.escapeHtml(ctrl.t('volver'))}
             </button>
             ${renderHamburgerMenu(ctrl)}
@@ -893,7 +902,7 @@ class ContactoState extends VistaState {
 
           <div class="text-center pt-2">
             <button
-              onclick="window.app.state.calculadoraBE ? window.app.setView('results') : window.app.setView('form')"
+              onclick="window.app.setView('${backTarget}')"
               class="inline-flex items-center justify-center bg-[#530618] hover:bg-[#3D0411] text-white font-bold text-xs uppercase tracking-widest px-8 py-3.5 rounded-sm transition-colors shadow cursor-pointer"
             >
               ${ctrl.escapeHtml(ctrl.t('volver'))}
@@ -910,6 +919,7 @@ class ContactoState extends VistaState {
  */
 class DespachantesState extends VistaState {
   render(ctrl) {
+    const backTarget = ctrl.state.returnView || (ctrl.state.calculadoraBE ? 'results' : 'form');
     return `
       <div class="min-h-screen bg-[#F4F6F8]">
         <header class="bg-[#420213] px-6 py-4 flex items-center justify-between shadow-sm">
@@ -917,7 +927,7 @@ class DespachantesState extends VistaState {
             ${renderBrandBadge('h-6 md:h-7')}
           </div>
           <div class="flex items-center gap-3">
-            <button onclick="window.app.state.calculadoraBE ? window.app.setView('results') : window.app.setView('form')" class="text-white/70 text-xs font-medium hover:text-white transition-colors">
+            <button onclick="window.app.setView('${backTarget}')" class="text-white/70 text-xs font-medium hover:text-white transition-colors cursor-pointer">
               ${ctrl.escapeHtml(ctrl.t('volver'))}
             </button>
             ${renderHamburgerMenu(ctrl)}
@@ -929,7 +939,7 @@ class DespachantesState extends VistaState {
 
           <div class="text-center pt-2">
             <button
-              onclick="window.app.state.calculadoraBE ? window.app.setView('results') : window.app.setView('form')"
+              onclick="window.app.setView('${backTarget}')"
               class="inline-flex items-center justify-center bg-[#530618] hover:bg-[#3D0411] text-white font-bold text-xs uppercase tracking-widest px-8 py-3.5 rounded-sm transition-colors shadow cursor-pointer"
             >
               ${ctrl.escapeHtml(ctrl.t('volver'))}

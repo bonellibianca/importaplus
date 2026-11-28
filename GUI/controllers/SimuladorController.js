@@ -25,6 +25,8 @@ class SimuladorController {
 
     this.state = {
       view: 'hero',
+      returnView: 'form',
+      menuHamburguesaAbierto: false,
       idioma: window.idiomaSubject ? window.idiomaSubject.obtenerIdioma() : 'es',
       form: {
         producto: '',
@@ -83,13 +85,15 @@ class SimuladorController {
     if (e && e.stopPropagation) e.stopPropagation();
     const drop = document.getElementById('dropdown-hamburguesa');
     if (drop) {
-      drop.classList.toggle('hidden');
+      const abierto = drop.classList.toggle('is-open');
+      this.state.menuHamburguesaAbierto = abierto;
     }
   }
 
   abrirWhatsappTrabajaConNosotros() {
     const drop = document.getElementById('dropdown-hamburguesa');
-    if (drop) drop.classList.add('hidden');
+    if (drop) drop.classList.remove('is-open');
+    this.state.menuHamburguesaAbierto = false;
 
     const primerFwd = (this.state.forwardersCatalogo || [])[0];
     const rawWa = (primerFwd && primerFwd.whatsapp) ? primerFwd.whatsapp : '+5491143218800';
@@ -121,8 +125,9 @@ class SimuladorController {
       document.addEventListener('click', (e) => {
         const wrap = document.getElementById('hamburger-menu-wrap');
         const drop = document.getElementById('dropdown-hamburguesa');
-        if (drop && !drop.classList.contains('hidden') && wrap && !wrap.contains(e.target)) {
-          drop.classList.add('hidden');
+        if (drop && drop.classList.contains('is-open') && wrap && !wrap.contains(e.target)) {
+          drop.classList.remove('is-open');
+          this.state.menuHamburguesaAbierto = false;
         }
       });
     }
@@ -149,6 +154,12 @@ class SimuladorController {
   }
 
   setView(newView) {
+    if (newView === 'contact' || newView === 'despachantes') {
+      if (this.state.view === 'form' || this.state.view === 'results' || this.state.view === 'breakdown') {
+        this.state.returnView = this.state.view;
+      }
+    }
+    this.state.menuHamburguesaAbierto = false;
     this.state.view = newView;
     this.currentState = this.states[newView] || this.states['hero'];
     window.scrollTo({ top: 0, behavior: 'smooth' });

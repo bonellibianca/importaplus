@@ -51,8 +51,16 @@ export default function RootLayout({ children }) {
           href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
           rel="stylesheet"
         />
+        <link
+          rel="stylesheet"
+          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        />
+        <script
+          src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          defer
+        />
       </head>
-      <body className="min-h-screen bg-slate-50 text-slate-900 antialiased selection:bg-[#530618] selection:text-white">
+      <body className="min-h-screen bg-[#F4F6F8] text-[#171717] antialiased selection:bg-[#530618] selection:text-white">
         {children}
       </body>
     </html>

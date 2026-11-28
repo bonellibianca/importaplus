@@ -9,6 +9,7 @@ export class PosicionArancelariaBE {
   constructor({
     codigo_ncm = '',
     descripcion = '',
+    categoria = '',
     tipo_bien = 'GENERAL', // 'BK' (Bien de Capital), 'BIT' (Informática/Telecom), 'GENERAL'
     aec = 0,
     iva_alicuota = 21.0,
@@ -18,6 +19,7 @@ export class PosicionArancelariaBE {
   } = {}) {
     this.codigo_ncm = codigo_ncm;
     this.descripcion = descripcion;
+    this.categoria = categoria || (descripcion.includes('>') ? descripcion.split('>')[0].trim() : '');
     this.tipo_bien = tipo_bien;
     this.aec = Number(aec) || 0;
     this.iva_alicuota = Number(iva_alicuota) || 21.0;

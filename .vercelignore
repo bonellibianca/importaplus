@@ -1,7 +1,9 @@
-# Excluir aplicación de escritorio Windows (.NET 9 WinForms) y archivos duplicados de diseño/SQL en el build de Vercel
+# Excluir aplicación de escritorio Windows (.NET 9 WinForms) y archivos duplicados/embebidos en el build de Vercel
 /AdminImportaPlus/
 /Diseño/
 /Base_ImportaPlus.sql
 /Activar_Escritura_Directa_Supabase.sql
 /IMPORTA_PLUS_NOMENCLADOR_CON_COLUMNAS.xlsx
 /Nomenclatura_NCM_aranceles.xlsx
+/datos_excels.js
+/DAL/database/ExcelDatabaseEmbedded.js
